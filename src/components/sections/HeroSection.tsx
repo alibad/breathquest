@@ -18,8 +18,8 @@ const HeroSection = () => {
         <h1>Breath Quest</h1>
         <p className="tagline">Play games with your breath</p>
         <p style={{ margin: '2rem 0', fontSize: '1.1rem', color: '#ccc' }}>
-          Control obstacles and navigate challenges using only your breathing. <br />
-          Like Geometry Dash, but powered by your lungs instead of fingers.
+          Master ancient breathing techniques to control your character. <br />
+          From breath of fire attacks to Om-powered ultimates - your lungs are the controller.
         </p>
         <div className="cta-buttons">
           <a 

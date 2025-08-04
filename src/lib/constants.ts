@@ -1,18 +1,18 @@
 export const whyCards = [
   {
     emoji: '🎮',
-    title: 'Intuitive Game Control',
-    description: 'No buttons, no clicks, just breathe. Your natural breathing rhythm becomes your controller. Inhale to jump over obstacles, exhale to slide under barriers, hold your breath for power-ups.'
+    title: 'Rich Breathing Mechanics',
+    description: 'Normal breathing = movement. Deep inhales = charge attacks. Sharp exhales = quick strikes. Breath holds = shields. Breath of fire = special abilities. Om sounds = ultimate powers. Your breathing technique IS your skillset.'
   },
   {
     emoji: '🧘',
-    title: 'Mindfulness Through Gaming',
-    description: 'Unlike traditional games that stress you out, breath games calm you down. Every level teaches better breathing patterns while keeping you entertained and challenged.'
+    title: 'Ancient Techniques, Modern Gaming',
+    description: 'Learn real pranayama, martial arts breathing, and meditation techniques through gameplay. Every boss fight teaches you a new breathing pattern that works in real life too.'
   },
   {
     emoji: '🚀',
-    title: 'Next-Level Immersion',
-    description: 'When your body controls the game, you feel every challenge in your chest. It\'s the most immersive gaming experience you\'ve never tried - like being inside the game world.'
+    title: 'Revolutionary Input System',
+    description: 'No neutral state problem - normal breathing is your baseline. Different intensities, speeds, and techniques create a rich control vocabulary that makes traditional controllers feel primitive.'
   }
 ];
 
@@ -58,32 +58,32 @@ export const timelineItems = [
 export const techCards = [
   {
     emoji: '🎤',
-    title: 'Phase 1: Microphone',
-    description: 'Web Audio API for real-time breath detection. FFT analysis on low frequencies. Smoothing algorithms to filter noise.'
+    title: 'Advanced Audio Analysis',
+    description: 'Web Audio API detects breath depth, speed, and technique. FFT analysis distinguishes between normal breathing, breath of fire, Om chanting, and silent holds. Real-time pattern recognition.'
   },
   {
-    emoji: '📡',
-    title: 'Phase 2: Sensors',
-    description: 'Bluetooth chest straps for precise respiratory rate. WebBluetooth API integration. Heart rate variability correlation.'
+    emoji: '🧠',
+    title: 'Breathing Pattern AI',
+    description: 'Machine learning models trained on different breathing techniques. Recognizes pranayama patterns, martial arts breathing, and meditation states. Adapts to individual breathing signatures.'
   },
   {
-    emoji: '🤖',
-    title: 'Phase 3: AI Coaching',
-    description: 'LLM-powered breath coach. Pattern recognition for technique improvement. Personalized difficulty curves.'
+    emoji: '🎯',
+    title: 'Technique Training',
+    description: 'Gamified learning of real breathing techniques. Progress from basic breath holds to advanced pranayama. Boss fights that require mastering specific breathing patterns.'
   },
   {
     emoji: '🌐',
-    title: 'Phase 4: Multiplayer',
-    description: 'WebRTC for synchronized breathing sessions. Collaborative breath puzzles. Global breath meditation events.'
+    title: 'Synchronized Breathing',
+    description: 'Multiplayer breath synchronization challenges. Cooperative breathing puzzles. Global meditation quests where players breathe in harmony across the world.'
   }
 ];
 
 export const hypotheses = [
-  'Mic-based breath detection is accurate enough for gameplay (no special hardware needed for MVP)',
-  'Visual feedback synchronized with breath creates stronger awareness than audio cues alone',
-  'Gamification drives better habit formation than traditional meditation apps',
-  'Breath patterns can become a unique biometric signature for personalized AI interactions',
-  'Multiplayer breath synchronization creates stronger social bonds than traditional online gaming'
+  'Normal breathing as the baseline solves the "neutral state" problem that plagued previous breath interfaces',
+  'Different breathing techniques (pranayama, martial arts, meditation) create a rich enough vocabulary for complex gameplay',
+  'Audio analysis can distinguish between breath depth, speed, technique, and vocal sounds with consumer microphones',
+  'Learning real breathing techniques through gaming creates lasting wellness habits better than meditation apps',
+  'Synchronized breathing in multiplayer games creates deeper social connection than any other gaming mechanic'
 ];
 
 export const nextStepsCards = [

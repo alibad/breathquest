@@ -8,10 +8,10 @@ const WhySection = () => {
   
   return (
     <section id="why" ref={sectionRef}>
-      <h2>How Breath Gaming Works</h2>
+      <h2>The Science of Breath Control</h2>
       <p style={{ fontSize: '1.2rem', marginBottom: '2rem', color: '#ccc' }}>
-        Your microphone detects your breathing patterns in real-time. Inhale to jump, exhale to duck, 
-        hold your breath to activate shields. It's surprisingly intuitive and incredibly engaging.
+        Your microphone becomes a breath sensor, detecting not just inhale/exhale, but the depth, speed, 
+        and technique of your breathing. Each breathing pattern unlocks different abilities in the game.
       </p>
       
       <div className="why-grid">
