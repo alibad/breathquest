@@ -58,32 +58,32 @@ export const timelineItems = [
 export const techCards = [
   {
     emoji: '🎤',
-    title: 'Advanced Audio Analysis',
-    description: 'Web Audio API detects breath depth, speed, and technique. FFT analysis distinguishes between normal breathing, breath of fire, Om chanting, and silent holds. Real-time pattern recognition.'
+    title: 'Phase 1: Microphone MVP',
+    description: 'Web Audio API detects inhale, exhale, hold, and normal breathing through consumer microphones. No additional hardware required. Testing if breath gaming is technically feasible and fun.'
   },
   {
-    emoji: '🧠',
-    title: 'Breathing Pattern AI',
-    description: 'Machine learning models trained on different breathing techniques. Recognizes pranayama patterns, martial arts breathing, and meditation states. Adapts to individual breathing signatures.'
+    emoji: '📱',
+    title: 'Phase 2: Sensor Integration',
+    description: 'Bluetooth respiratory monitors and heart rate sensors for medical-grade accuracy. Compare microphone vs dedicated sensors to validate hypothesis #3 about hardware benefits.'
   },
   {
     emoji: '🎯',
-    title: 'Technique Training',
-    description: 'Gamified learning of real breathing techniques. Progress from basic breath holds to advanced pranayama. Boss fights that require mastering specific breathing patterns.'
+    title: 'Phase 3: Game Mechanics',
+    description: 'Progressive breathing technique training through gameplay. Test hypothesis #5: can games teach complex breathing patterns faster than traditional instruction methods.'
   },
   {
-    emoji: '🌐',
-    title: 'Synchronized Breathing',
-    description: 'Multiplayer breath synchronization challenges. Cooperative breathing puzzles. Global meditation quests where players breathe in harmony across the world.'
+    emoji: '📊',
+    title: 'Phase 4: Health Validation',
+    description: 'Measure actual improvements in breathing technique, lung capacity, and stress reduction. Validate hypothesis #4: do breath games create better health outcomes than meditation apps.'
   }
 ];
 
 export const hypotheses = [
-  'Normal breathing as the baseline solves the "neutral state" problem that plagued previous breath interfaces',
-  'Different breathing techniques (pranayama, martial arts, meditation) create a rich enough vocabulary for complex gameplay',
-  'Audio analysis can distinguish between breath depth, speed, technique, and vocal sounds with consumer microphones',
-  'Learning real breathing techniques through gaming creates lasting wellness habits better than meditation apps',
-  'Synchronized breathing in multiplayer games creates deeper social connection than any other gaming mechanic'
+  'Consumer microphones can reliably detect inhale, exhale, breath hold, and normal breathing patterns with sufficient accuracy for real-time gaming',
+  'Breath-controlled gameplay can be genuinely fun and engaging, not just a novelty - players will want to play for entertainment, not just wellness',
+  'Respiratory and heart rate monitors can provide significantly better breath gaming experiences than microphone-only detection',
+  'Breath-based games create measurable improvements in breathing technique and respiratory health compared to traditional meditation apps',
+  'Players can learn and master complex breathing patterns (4-7-8, box breathing, breath of fire) through progressive game mechanics faster than through instruction alone'
 ];
 
 export const nextStepsCards = [

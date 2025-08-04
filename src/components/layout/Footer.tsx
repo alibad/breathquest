@@ -8,7 +8,7 @@ const Footer = () => {
         Built with passion for the future of human-AI interaction
       </p>
       <div className="contact-info">
-        <a href="https://github.com/alibadereddin/breathquest" target="_blank" rel="noopener noreferrer">
+        <a href="https://github.com/alibad/breathquest" target="_blank" rel="noopener noreferrer">
           GitHub
         </a>
         <a href="http://linkedin.com/in/alibad" target="_blank" rel="noopener noreferrer">

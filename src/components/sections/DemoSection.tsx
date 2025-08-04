@@ -112,10 +112,10 @@ const DemoSection = () => {
   
   return (
     <section id="demo" className="demo-section" ref={sectionRef}>
-      <h2>Try Breath Gaming</h2>
+      <h2>Testing Hypothesis #1</h2>
       <p style={{ fontSize: '1.2rem', marginBottom: '2rem' }}>
-        Jump, dodge, and power-up using only your breath. Works with any microphone - 
-        even your laptop's built-in mic. No downloads required.
+        Can consumer microphones reliably detect different breathing patterns? 
+        This live demo tests breath detection accuracy using just your laptop's built-in mic.
       </p>
       
       <div className="demo-preview">

@@ -8,7 +8,7 @@ const HypothesisSection = () => {
   
   return (
     <section id="hypothesis" ref={sectionRef}>
-      <h2>Core Hypotheses</h2>
+      <h2>Testable Hypotheses</h2>
       
       <ul className="hypothesis-list">
         {hypotheses.map((hypothesis, index) => (
