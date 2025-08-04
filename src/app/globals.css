@@ -22,6 +22,17 @@ body {
     overflow-x: hidden;
 }
 
+/* Text Selection Colors */
+::selection {
+    background: var(--primary);
+    color: var(--dark);
+}
+
+::-moz-selection {
+    background: var(--primary);
+    color: var(--dark);
+}
+
 /* Hero Section */
 .hero {
     min-height: 100vh;
