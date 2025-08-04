@@ -1,6 +1,12 @@
+'use client';
+
+import { useFadeInOnScroll } from '@/hooks/useFadeInOnScroll';
+
 const StorySection = () => {
+  const sectionRef = useFadeInOnScroll();
+  
   return (
-    <section id="story">
+    <section id="story" ref={sectionRef}>
       <h2>My Story</h2>
       
       <div className="story-box">

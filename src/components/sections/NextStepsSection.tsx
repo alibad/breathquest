@@ -1,8 +1,13 @@
+'use client';
+
 import { nextStepsCards } from '@/lib/constants';
+import { useFadeInOnScroll } from '@/hooks/useFadeInOnScroll';
 
 const NextStepsSection = () => {
+  const sectionRef = useFadeInOnScroll();
+  
   return (
-    <section>
+    <section ref={sectionRef}>
       <h2>What's Next?</h2>
       
       <div className="why-grid">

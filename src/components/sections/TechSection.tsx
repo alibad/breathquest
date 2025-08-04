@@ -1,8 +1,13 @@
+'use client';
+
 import { techCards } from '@/lib/constants';
+import { useFadeInOnScroll } from '@/hooks/useFadeInOnScroll';
 
 const TechSection = () => {
+  const sectionRef = useFadeInOnScroll();
+  
   return (
-    <section id="tech">
+    <section id="tech" ref={sectionRef}>
       <h2>Technical Approach</h2>
       
       <div className="tech-grid">

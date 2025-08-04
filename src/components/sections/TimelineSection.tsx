@@ -1,6 +1,11 @@
+'use client';
+
 import { timelineItems } from '@/lib/constants';
+import { useFadeInOnScroll } from '@/hooks/useFadeInOnScroll';
 
 const TimelineSection = () => {
+  const sectionRef = useFadeInOnScroll();
+  
   const getStatusDisplay = (status: string) => {
     switch (status) {
       case 'done':
@@ -15,7 +20,7 @@ const TimelineSection = () => {
   };
 
   return (
-    <section id="timeline">
+    <section id="timeline" ref={sectionRef}>
       <h2>Live Build Timeline</h2>
       <p style={{ color: '#ccc', marginBottom: '3rem' }}>
         Tracking progress in real-time. This page updates as I build.

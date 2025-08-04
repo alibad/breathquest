@@ -1,8 +1,13 @@
+'use client';
+
 import { whyCards } from '@/lib/constants';
+import { useFadeInOnScroll } from '@/hooks/useFadeInOnScroll';
 
 const WhySection = () => {
+  const sectionRef = useFadeInOnScroll();
+  
   return (
-    <section id="why">
+    <section id="why" ref={sectionRef}>
       <h2>Why This Exists</h2>
       <p style={{ fontSize: '1.2rem', marginBottom: '2rem', color: '#ccc' }}>
         I saw the OpenAI role for "Interfaces for Future Intelligence" and immediately started building. 

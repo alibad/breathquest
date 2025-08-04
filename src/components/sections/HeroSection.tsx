@@ -1,4 +1,10 @@
+'use client';
+
+import { useParallax } from '@/hooks/useParallax';
+
 const HeroSection = () => {
+  const heroRef = useParallax(0.5);
+  
   const scrollToSection = (sectionId: string) => {
     const element = document.getElementById(sectionId);
     if (element) {
@@ -7,7 +13,7 @@ const HeroSection = () => {
   };
 
   return (
-    <section className="hero">
+    <section className="hero" ref={heroRef}>
       <div className="hero-content fade-in">
         <h1>Breath Quest</h1>
         <p className="tagline">Building novel interfaces for future intelligence</p>

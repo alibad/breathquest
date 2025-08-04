@@ -1,6 +1,12 @@
+'use client';
+
+import { useFadeInOnScroll } from '@/hooks/useFadeInOnScroll';
+
 const DemoSection = () => {
+  const sectionRef = useFadeInOnScroll();
+  
   return (
-    <section id="demo" className="demo-section">
+    <section id="demo" className="demo-section" ref={sectionRef}>
       <h2>Live Demo</h2>
       <p style={{ fontSize: '1.2rem', marginBottom: '2rem' }}>
         Experience breath-controlled gaming. Allow microphone access and breathe naturally.

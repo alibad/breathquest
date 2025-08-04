@@ -1,8 +1,13 @@
+'use client';
+
 import { hypotheses } from '@/lib/constants';
+import { useFadeInOnScroll } from '@/hooks/useFadeInOnScroll';
 
 const HypothesisSection = () => {
+  const sectionRef = useFadeInOnScroll();
+  
   return (
-    <section id="hypothesis">
+    <section id="hypothesis" ref={sectionRef}>
       <h2>Core Hypotheses</h2>
       
       <ul className="hypothesis-list">
