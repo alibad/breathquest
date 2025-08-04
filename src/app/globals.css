@@ -265,6 +265,12 @@ h3 {
     transform: scale(1.02);
 }
 
+.timeline-content.optional {
+    opacity: 0.85;
+    border-style: dashed;
+    border-color: rgba(0, 204, 255, 0.3);
+}
+
 .timeline-date {
     position: absolute;
     left: 50%;

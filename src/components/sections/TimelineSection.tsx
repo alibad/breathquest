@@ -29,7 +29,7 @@ const TimelineSection = () => {
       <div className="timeline">
         {timelineItems.map((item, index) => (
           <div key={index} className="timeline-item">
-            <div className="timeline-content">
+            <div className={`timeline-content ${item.title.includes('(Optional)') ? 'optional' : ''}`}>
               <h3>{item.title}</h3>
               <p>{item.description}</p>
               {getStatusDisplay(item.status)}

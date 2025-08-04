@@ -8,7 +8,7 @@ const TechSection = () => {
   
   return (
     <section id="tech" ref={sectionRef}>
-      <h2>Technical Approach</h2>
+      <h2>Technical Architecture</h2>
       
       <div className="tech-grid">
         {techCards.map((card, index) => (

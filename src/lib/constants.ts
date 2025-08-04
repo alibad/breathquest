@@ -1,18 +1,18 @@
 export const whyCards = [
   {
     emoji: '🎮',
-    title: 'Rich Breathing Mechanics',
-    description: 'Normal breathing = movement. Deep inhales = charge attacks. Sharp exhales = quick strikes. Breath holds = shields. Breath of fire = special abilities. Om sounds = ultimate powers. Your breathing technique IS your skillset.'
+    title: 'Rich Control Vocabulary',
+    description: 'What if different breathing techniques could become unique game abilities? Imagine deep inhales charging attacks, breath holds activating shields, or traditional breathing patterns unlocking special moves. The depth of human breathing could create surprisingly rich gameplay.'
   },
   {
     emoji: '🧘',
-    title: 'Ancient Techniques, Modern Gaming',
-    description: 'Learn real pranayama, martial arts breathing, and meditation techniques through gameplay. Every boss fight teaches you a new breathing pattern that works in real life too.'
+    title: 'Learning Through Play',
+    description: 'Could games naturally teach breathing techniques that actually improve wellness? Instead of forcing meditation practice, players might discover pranayama, martial arts breathing, and stress-relief techniques through engaging gameplay.'
   },
   {
     emoji: '🚀',
-    title: 'Revolutionary Input System',
-    description: 'No neutral state problem - normal breathing is your baseline. Different intensities, speeds, and techniques create a rich control vocabulary that makes traditional controllers feel primitive.'
+    title: 'Natural Interface Design',
+    description: 'What if we could solve the "neutral state" problem in breath interfaces by using normal breathing as the baseline? Different breathing intensities and techniques might create a surprisingly intuitive control system.'
   }
 ];
 
@@ -36,54 +36,81 @@ export const timelineItems = [
     date: 'Aug 4-5, 2025'
   },
   {
-    title: 'Advanced Mechanics',
-    description: 'Power-ups, shields, breath combos, and multiple breathing techniques.',
+    title: 'User Testing Round 1',
+    description: 'Test core breath detection accuracy and basic gameplay with early users.',
     status: 'planned' as const,
-    date: 'Aug 6-7, 2025'
+    date: 'Aug 6, 2025'
   },
   {
-    title: 'Smart Difficulty',
-    description: 'AI adapts game speed and challenges to your breathing skill level.',
+    title: 'Core Mechanics Refinement',
+    description: 'Improve breath sensitivity, add power-ups and shields based on feedback.',
     status: 'planned' as const,
-    date: 'Aug 8-10, 2025'
+    date: 'Aug 7-8, 2025'
   },
   {
-    title: 'Full Game Release',
-    description: 'Multiple levels, leaderboards, and breathing pattern challenges.',
+    title: 'Multiple Levels',
+    description: 'Create 5-10 levels with increasing difficulty and new breathing challenges. Can launch with 3+ levels if needed.',
     status: 'planned' as const,
-    date: 'Aug 12-15, 2025'
+    date: 'Aug 9-11, 2025'
+  },
+  {
+    title: 'Sensor Integration (Optional)',
+    description: 'Add heart rate monitor support for adaptive difficulty and stress detection. Depends on core gameplay validation.',
+    status: 'planned' as const,
+    date: 'Aug 12-13, 2025'
+  },
+  {
+    title: 'Beta Testing',
+    description: 'Closed beta with 50-100 users to validate gameplay and health benefits.',
+    status: 'planned' as const,
+    date: 'Aug 14-16, 2025'
+  },
+  {
+    title: 'Multiplayer MVP (Optional)',
+    description: 'Basic synchronized breathing challenges for 2-4 players. Priority depends on single-player engagement metrics.',
+    status: 'planned' as const,
+    date: 'Aug 17-19, 2025'
+  },
+  {
+    title: 'Public Launch',
+    description: 'Release web version with leaderboards and social sharing features.',
+    status: 'planned' as const,
+    date: 'Aug 20-25, 2025'
   }
 ];
 
 export const techCards = [
   {
     emoji: '🎤',
-    title: 'Phase 1: Microphone MVP',
-    description: 'Web Audio API detects inhale, exhale, hold, and normal breathing through consumer microphones. No additional hardware required. Testing if breath gaming is technically feasible and fun.'
+    title: 'Audio Detection',
+    description: 'Web Audio API analyzes microphone input to detect breathing patterns in real-time. FFT analysis distinguishes inhale, exhale, holds, and breathing intensity without additional hardware.'
+  },
+  {
+    emoji: '🎮',
+    title: 'Game Engine Integration',
+    description: 'Breath data controls game mechanics through smooth input mapping. Breathing becomes a natural game controller with customizable sensitivity and response curves.'
   },
   {
     emoji: '📱',
-    title: 'Phase 2: Sensor Integration',
-    description: 'Bluetooth respiratory monitors and heart rate sensors for medical-grade accuracy. Compare microphone vs dedicated sensors to validate hypothesis #3 about hardware benefits.'
+    title: 'Sensor Fusion',
+    description: 'Heart rate monitors and respiratory sensors provide additional physiological data for adaptive difficulty, stress detection, and enhanced gameplay mechanics.'
   },
   {
-    emoji: '🎯',
-    title: 'Phase 3: Game Mechanics',
-    description: 'Progressive breathing technique training through gameplay. Test hypothesis #5: can games teach complex breathing patterns faster than traditional instruction methods.'
-  },
-  {
-    emoji: '📊',
-    title: 'Phase 4: Health Validation',
-    description: 'Measure actual improvements in breathing technique, lung capacity, and stress reduction. Validate hypothesis #4: do breath games create better health outcomes than meditation apps.'
+    emoji: '🌐',
+    title: 'Multiplayer Architecture',
+    description: 'Real-time breath synchronization between players using WebRTC. Enables cooperative breathing challenges and competitive breath-based gameplay.'
   }
 ];
 
 export const hypotheses = [
-  'Consumer microphones can reliably detect inhale, exhale, breath hold, and normal breathing patterns with sufficient accuracy for real-time gaming',
-  'Breath-controlled gameplay can be genuinely fun and engaging, not just a novelty - players will want to play for entertainment, not just wellness',
-  'Respiratory and heart rate monitors can provide significantly better breath gaming experiences than microphone-only detection',
-  'Breath-based games create measurable improvements in breathing technique and respiratory health compared to traditional meditation apps',
-  'Players can learn and master complex breathing patterns (4-7-8, box breathing, breath of fire) through progressive game mechanics faster than through instruction alone'
+  'Consumer microphones can reliably detect breathing patterns with sufficient accuracy for real-time gaming',
+  'Breath-controlled gameplay is genuinely fun and engaging, not just a wellness novelty',
+  'Heart rate and respiratory sensors provide complementary data that enables adaptive gameplay mechanics beyond microphone detection',
+  'Breath games create measurable health improvements that persist beyond gaming sessions',
+  'Players learn complex breathing techniques faster through progressive game mechanics than traditional instruction',
+  'Multiplayer breath gaming creates stronger social bonding than traditional multiplayer mechanics',
+  'Breath games provide accessible gaming experiences for players with mobility or motor control challenges',
+  'Integration of breath mechanics enhances rather than disrupts existing popular game genres'
 ];
 
 export const nextStepsCards = [
