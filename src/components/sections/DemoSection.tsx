@@ -15,6 +15,7 @@ const DemoSection = () => {
   
   // React state instead of manual DOM manipulation
   const [isListening, setIsListening] = useState(false);
+  const isListeningRef = useRef(false); // Use ref for immediate access
   const [isCalibrating, setIsCalibrating] = useState(false);
   const [calibrationProgress, setCalibrationProgress] = useState(0);
   const [showUI, setShowUI] = useState(false);
@@ -48,7 +49,7 @@ const DemoSection = () => {
   const lastDisplayedAmplitudeRef = useRef(0);
 
   const startBreathDemo = async () => {
-    if (isListening) {
+    if (isListeningRef.current) {
       stopDemo();
       return;
     }
@@ -87,6 +88,25 @@ const DemoSection = () => {
       microphoneRef.current.connect(analyserRef.current);
       console.log('🔗 Microphone connected to analyser');
       
+      // Debug the stream and tracks
+      const tracks = stream.getAudioTracks();
+      console.log('🎵 Audio tracks:', tracks.map(track => ({
+        label: track.label,
+        enabled: track.enabled,
+        readyState: track.readyState,
+        settings: track.getSettings()
+      })));
+      
+      // Check if we can get some initial data right away
+      setTimeout(() => {
+        if (analyserRef.current) {
+          const testData = new Uint8Array(analyserRef.current.fftSize);
+          analyserRef.current.getByteTimeDomainData(testData);
+          console.log('🧪 Initial audio test data sample:', testData.slice(0, 10));
+          console.log('🧪 Data variance:', Math.max(...testData) - Math.min(...testData));
+        }
+      }, 500);
+      
       // Reset calibration and smoothing variables
       baselineRef.current = 0;
       calibrationCountRef.current = 0;
@@ -97,11 +117,12 @@ const DemoSection = () => {
       
       // Show UI and start
       setIsListening(true);
+      isListeningRef.current = true; // Set ref immediately
       setIsCalibrating(true);
       setShowUI(true);
       setCalibrationProgress(0);
       
-      console.log('🚀 Starting breath detection...');
+      console.log('🚀 Starting breath detection... isListeningRef:', isListeningRef.current);
       detectBreath();
     } catch (error) {
       console.error('❌ Microphone error:', error);
@@ -111,6 +132,7 @@ const DemoSection = () => {
 
   const stopDemo = () => {
     setIsListening(false);
+    isListeningRef.current = false; // Set ref immediately
     setIsCalibrating(false);
     setShowUI(false);
     setCalibrationProgress(0);
@@ -131,7 +153,15 @@ const DemoSection = () => {
   };
 
   const detectBreath = () => {
-    if (!isListening || !analyserRef.current) return;
+    if (!isListeningRef.current || !analyserRef.current) {
+      console.log('❌ detectBreath stopped - isListeningRef:', isListeningRef.current, 'analyserRef:', !!analyserRef.current);
+      return;
+    }
+    
+    // Add a simple call counter for debugging
+    if (calibrationCountRef.current === 0) {
+      console.log('🔄 detectBreath is running...');
+    }
     
     // Try both time domain and frequency domain for better detection
     const bufferLength = analyserRef.current.fftSize;
@@ -160,11 +190,26 @@ const DemoSection = () => {
     const avgFreqPower = freqSum / breathFreqRange;
     
     // Combine both methods for better detection
-    const rawAmplitude = Math.max(rms * 100, avgFreqPower, maxSample * 50); // Multiple detection methods
+    let rawAmplitude = Math.max(rms * 100, avgFreqPower, maxSample * 50); // Multiple detection methods
     
-    // Debug logging during calibration
-    if (calibrationCountRef.current < 10) {
-      console.log(`🔊 Audio Debug - RMS: ${rms.toFixed(4)}, FreqPower: ${avgFreqPower.toFixed(1)}, MaxSample: ${maxSample.toFixed(4)}, Combined: ${rawAmplitude.toFixed(2)}`);
+    // Emergency fallback: if we get no signal at all, inject fake data for testing
+    if (rawAmplitude === 0 && calibrationCountRef.current > 5 && calibrationCountRef.current < 10) {
+      rawAmplitude = Math.random() * 10 + 5; // Random amplitude between 5-15
+      console.log('⚠️ No real audio detected, using fake data for testing:', rawAmplitude.toFixed(2));
+    }
+    
+    // Debug logging during calibration - more detailed
+    if (calibrationCountRef.current < 15) {
+      console.log(`🔊 Audio Debug ${calibrationCountRef.current}:`, {
+        rms: rms.toFixed(4),
+        freqPower: avgFreqPower.toFixed(1),
+        maxSample: maxSample.toFixed(4),
+        combined: rawAmplitude.toFixed(2),
+        rawDataSample: `[${dataArray.slice(0, 5).join(', ')}...]`,
+        freqDataSample: `[${freqArray.slice(0, 5).join(', ')}...]`,
+        audioContextState: audioContextRef.current?.state,
+        sampleRate: audioContextRef.current?.sampleRate
+      });
     }
     
     // Smooth the amplitude to reduce flickering (exponential moving average)
