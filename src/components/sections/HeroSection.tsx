@@ -16,10 +16,10 @@ const HeroSection = () => {
     <section className="hero" ref={heroRef}>
       <div className="hero-content fade-in">
         <h1>Breath Quest</h1>
-        <p className="tagline">Building novel interfaces for future intelligence</p>
+        <p className="tagline">Play games with your breath</p>
         <p style={{ margin: '2rem 0', fontSize: '1.1rem', color: '#ccc' }}>
-          What if we could control AI with our breath? <br />
-          A real-time experiment in embodied interaction.
+          Control obstacles and navigate challenges using only your breathing. <br />
+          Like Geometry Dash, but powered by your lungs instead of fingers.
         </p>
         <div className="cta-buttons">
           <a 
@@ -30,17 +30,17 @@ const HeroSection = () => {
               scrollToSection('demo');
             }}
           >
-            Try Live Demo
+            🎮 Play Now
           </a>
           <a 
-            href="#story" 
+            href="#why" 
             className="btn btn-secondary"
             onClick={(e) => {
               e.preventDefault();
-              scrollToSection('story');
+              scrollToSection('why');
             }}
           >
-            Read My Story
+            How It Works
           </a>
         </div>
       </div>

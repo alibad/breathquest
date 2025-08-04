@@ -7,14 +7,18 @@ const DemoSection = () => {
   
   return (
     <section id="demo" className="demo-section" ref={sectionRef}>
-      <h2>Live Demo</h2>
+      <h2>Try Breath Gaming</h2>
       <p style={{ fontSize: '1.2rem', marginBottom: '2rem' }}>
-        Experience breath-controlled gaming. Allow microphone access and breathe naturally.
+        Jump, dodge, and power-up using only your breath. Works with any microphone - 
+        even your laptop's built-in mic. No downloads required.
       </p>
       
       <div className="demo-preview">
         <div className="demo-placeholder">
-          <p>🎮 Demo loads here - or open in full screen</p>
+          <p>🎮 Breath-controlled obstacle course coming soon</p>
+          <p style={{ fontSize: '0.9rem', marginTop: '1rem', opacity: '0.7' }}>
+            Inhale → Jump | Exhale → Duck | Hold → Shield
+          </p>
         </div>
       </div>
       
@@ -23,7 +27,7 @@ const DemoSection = () => {
         className="btn pulse" 
         style={{ fontSize: '1.2rem', padding: '1.2rem 3rem' }}
       >
-        Launch Full Experience
+        🚀 Start Playing
       </a>
     </section>
   );

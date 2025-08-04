@@ -8,10 +8,10 @@ const WhySection = () => {
   
   return (
     <section id="why" ref={sectionRef}>
-      <h2>Why This Exists</h2>
+      <h2>How Breath Gaming Works</h2>
       <p style={{ fontSize: '1.2rem', marginBottom: '2rem', color: '#ccc' }}>
-        I saw the OpenAI role for "Interfaces for Future Intelligence" today and immediately started building. 
-        Not another ChatGPT wrapper. Not another voice assistant. Something genuinely new.
+        Your microphone detects your breathing patterns in real-time. Inhale to jump, exhale to duck, 
+        hold your breath to activate shields. It's surprisingly intuitive and incredibly engaging.
       </p>
       
       <div className="why-grid">

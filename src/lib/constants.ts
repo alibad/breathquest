@@ -1,55 +1,55 @@
 export const whyCards = [
   {
     emoji: '🎮',
-    title: 'Beyond Traditional Input',
-    description: 'Keyboards and mice were designed for typewriters and desktops. What interfaces will we need when AI is ambient, embodied, and aware? Breath Quest explores biological signals as natural controllers.'
+    title: 'Intuitive Game Control',
+    description: 'No buttons, no clicks, just breathe. Your natural breathing rhythm becomes your controller. Inhale to jump over obstacles, exhale to slide under barriers, hold your breath for power-ups.'
   },
   {
     emoji: '🧘',
-    title: 'Wellness Through Play',
-    description: 'Meditation apps tell you to breathe. Games make you want to breathe. By gamifying breath control, we create positive feedback loops that train better breathing habits without the friction of discipline.'
+    title: 'Mindfulness Through Gaming',
+    description: 'Unlike traditional games that stress you out, breath games calm you down. Every level teaches better breathing patterns while keeping you entertained and challenged.'
   },
   {
-    emoji: '🔬',
-    title: 'Rapid Experimentation',
-    description: 'From concept to working prototype in days, not months. This isn\'t about perfection—it\'s about exploring what\'s possible when we reimagine human-AI interaction from first principles.'
+    emoji: '🚀',
+    title: 'Next-Level Immersion',
+    description: 'When your body controls the game, you feel every challenge in your chest. It\'s the most immersive gaming experience you\'ve never tried - like being inside the game world.'
   }
 ];
 
 export const timelineItems = [
   {
-    title: 'Project Conceived',
-    description: 'Saw the OpenAI role. Started ideating on breath as interface.',
+    title: 'Game Concept',
+    description: 'Breath-controlled gaming idea sparked by geometry dash mechanics.',
     status: 'done' as const,
     date: 'Aug 3, 2025'
   },
   {
-    title: 'Landing Page Built',
-    description: 'Next.js landing page with breathing animations and project vision.',
+    title: 'Landing Experience',
+    description: 'Interactive demo page with breathing animations and game preview.',
     status: 'in-progress' as const,
     date: 'Aug 3, 2025'
   },
   {
-    title: 'MVP Development',
-    description: 'Core breath detection via Web Audio API. Basic game mechanics.',
+    title: 'Playable Prototype',
+    description: 'First level: jump and duck obstacles using breath detection.',
     status: 'planned' as const,
     date: 'Aug 4-5, 2025'
   },
   {
-    title: 'Pattern Recognition',
-    description: 'Implement box breathing, 4-7-8, and Wim Hof detection algorithms.',
+    title: 'Advanced Mechanics',
+    description: 'Power-ups, shields, breath combos, and multiple breathing techniques.',
     status: 'planned' as const,
     date: 'Aug 6-7, 2025'
   },
   {
-    title: 'AI Integration',
-    description: 'Adaptive difficulty based on breath consistency. Personalized coaching.',
+    title: 'Smart Difficulty',
+    description: 'AI adapts game speed and challenges to your breathing skill level.',
     status: 'planned' as const,
     date: 'Aug 8-10, 2025'
   },
   {
-    title: 'Public Launch',
-    description: 'Deploy full experience. Open source the codebase.',
+    title: 'Full Game Release',
+    description: 'Multiple levels, leaderboards, and breathing pattern challenges.',
     status: 'planned' as const,
     date: 'Aug 12-15, 2025'
   }

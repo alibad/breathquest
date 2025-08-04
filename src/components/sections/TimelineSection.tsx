@@ -21,9 +21,9 @@ const TimelineSection = () => {
 
   return (
     <section id="timeline" ref={sectionRef}>
-      <h2>Live Build Timeline</h2>
+      <h2>Game Development Progress</h2>
       <p style={{ color: '#ccc', marginBottom: '3rem' }}>
-        Tracking progress in real-time. This page updates as I build.
+        From concept to playable breath-controlled game. Watch the magic happen in real-time.
       </p>
       
       <div className="timeline">
