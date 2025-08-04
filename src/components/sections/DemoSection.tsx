@@ -54,22 +54,38 @@ const DemoSection = () => {
     }
 
     try {
+      console.log('🎤 Requesting microphone access...');
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: { 
           echoCancellation: false,
           noiseSuppression: false,
-          autoGainControl: false
+          autoGainControl: false,
+          sampleRate: 44100
         } 
       });
       
+      console.log('✅ Microphone access granted!');
+      console.log('🔧 Creating audio context...');
+      
       audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      
+      // Resume audio context if suspended (required for some browsers)
+      if (audioContextRef.current.state === 'suspended') {
+        await audioContextRef.current.resume();
+        console.log('🔄 Audio context resumed');
+      }
+      
       analyserRef.current = audioContextRef.current.createAnalyser();
       microphoneRef.current = audioContextRef.current.createMediaStreamSource(stream);
       
       // Better settings for breath detection
       analyserRef.current.fftSize = 2048;
-      analyserRef.current.smoothingTimeConstant = 0.3;
+      analyserRef.current.smoothingTimeConstant = 0.8; // More smoothing
+      analyserRef.current.minDecibels = -90;
+      analyserRef.current.maxDecibels = -10;
+      
       microphoneRef.current.connect(analyserRef.current);
+      console.log('🔗 Microphone connected to analyser');
       
       // Reset calibration and smoothing variables
       baselineRef.current = 0;
@@ -85,9 +101,11 @@ const DemoSection = () => {
       setShowUI(true);
       setCalibrationProgress(0);
       
+      console.log('🚀 Starting breath detection...');
       detectBreath();
     } catch (error) {
-      console.error('Microphone access denied:', error);
+      console.error('❌ Microphone error:', error);
+      alert('Microphone access denied. Please allow microphone access and refresh the page.');
     }
   };
 
@@ -115,22 +133,42 @@ const DemoSection = () => {
   const detectBreath = () => {
     if (!isListening || !analyserRef.current) return;
     
-    // Use time domain data for better breath detection
+    // Try both time domain and frequency domain for better detection
     const bufferLength = analyserRef.current.fftSize;
     const dataArray = new Uint8Array(bufferLength);
-    analyserRef.current.getByteTimeDomainData(dataArray);
+    const freqArray = new Uint8Array(analyserRef.current.frequencyBinCount);
     
-    // Calculate RMS (Root Mean Square) for better amplitude detection
+    analyserRef.current.getByteTimeDomainData(dataArray);
+    analyserRef.current.getByteFrequencyData(freqArray);
+    
+    // Calculate RMS from time domain
     let sum = 0;
+    let maxSample = 0;
     for (let i = 0; i < bufferLength; i++) {
-      const sample = (dataArray[i] - 128) / 128; // Normalize to -1 to 1
+      const sample = Math.abs((dataArray[i] - 128) / 128); // Normalize to 0 to 1
       sum += sample * sample;
+      maxSample = Math.max(maxSample, sample);
     }
     const rms = Math.sqrt(sum / bufferLength);
-    const rawAmplitude = rms * 1000; // Scale for easier thresholding
+    
+    // Calculate average frequency power (more sensitive to breath)
+    let freqSum = 0;
+    const breathFreqRange = Math.min(100, freqArray.length); // Focus on low frequencies for breath
+    for (let i = 0; i < breathFreqRange; i++) {
+      freqSum += freqArray[i];
+    }
+    const avgFreqPower = freqSum / breathFreqRange;
+    
+    // Combine both methods for better detection
+    const rawAmplitude = Math.max(rms * 100, avgFreqPower, maxSample * 50); // Multiple detection methods
+    
+    // Debug logging during calibration
+    if (calibrationCountRef.current < 10) {
+      console.log(`🔊 Audio Debug - RMS: ${rms.toFixed(4)}, FreqPower: ${avgFreqPower.toFixed(1)}, MaxSample: ${maxSample.toFixed(4)}, Combined: ${rawAmplitude.toFixed(2)}`);
+    }
     
     // Smooth the amplitude to reduce flickering (exponential moving average)
-    const smoothingFactor = 0.3;
+    const smoothingFactor = 0.2; // Less smoothing for more responsiveness
     smoothedAmplitudeRef.current = (smoothingFactor * rawAmplitude) + ((1 - smoothingFactor) * smoothedAmplitudeRef.current);
     const amplitude = smoothedAmplitudeRef.current;
     
@@ -142,18 +180,25 @@ const DemoSection = () => {
       baselineRef.current += amplitude;
       calibrationCountRef.current++;
       
-      // Always update calibration progress (don't wait for shouldUpdateUI)
+      // Always update calibration progress and show real-time data
       setCalibrationProgress(calibrationCountRef.current);
+      const levelPercent = Math.min(100, (amplitude / 20) * 100); // More sensitive scaling
       setAudioData({
         amplitude: amplitude,
-        baseline: 0,
+        baseline: baselineRef.current / Math.max(1, calibrationCountRef.current), // Show running average
         relative: 0,
-        levelPercent: Math.min(100, (amplitude / 50) * 100)
+        levelPercent: levelPercent
       });
+      
+      // Log calibration progress every 10 samples
+      if (calibrationCountRef.current % 10 === 0) {
+        console.log(`📊 Calibration ${calibrationCountRef.current}/60 - Amplitude: ${amplitude.toFixed(2)}, Running Baseline: ${(baselineRef.current / calibrationCountRef.current).toFixed(2)}`);
+      }
       
       if (calibrationCountRef.current === 60) {
         baselineRef.current = baselineRef.current / 60;
         setIsCalibrating(false);
+        console.log(`✅ Calibration complete! Final baseline: ${baselineRef.current.toFixed(2)}`);
       }
       animationRef.current = requestAnimationFrame(detectBreath);
       return;
