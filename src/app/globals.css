@@ -374,20 +374,23 @@ h3 {
 /* Live Demo */
 .demo-section {
     text-align: center;
-    padding: 3rem;
+    padding: 1rem;
     background: radial-gradient(circle at center, rgba(0, 255, 136, 0.05), transparent);
     border-radius: 20px;
-    margin: 2rem 0;
+    margin: 1rem 0;
+    min-height: 70vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
 }
 
 .demo-preview {
     width: 100%;
-    max-width: 800px;
-    height: 400px;
-    margin: 2rem auto;
-    border: 2px solid var(--primary);
-    border-radius: 15px;
-    overflow: hidden;
+    max-width: none;
+    margin: 1rem auto;
+    border: none;
+    border-radius: 0;
+    overflow: visible;
     position: relative;
     background: linear-gradient(135deg, rgba(0, 255, 136, 0.1), rgba(0, 204, 255, 0.1));
 }
@@ -466,4 +469,16 @@ footer {
 @keyframes pulse {
     0%, 100% { transform: scale(1); }
     50% { transform: scale(1.05); }
+}
+
+/* Breathing animation for game character */
+@keyframes breathe {
+    0%, 100% { 
+        box-shadow: 0 0 30px rgba(0, 255, 136, 0.9);
+        transform: translateY(0px) scale(1);
+    }
+    50% { 
+        box-shadow: 0 0 50px rgba(0, 255, 136, 1);
+        transform: translateY(0px) scale(1.08);
+    }
 }
