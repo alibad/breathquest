@@ -28,7 +28,7 @@ const StorySection = () => {
           calming yet energizing. <span className="highlight">It's the perfect bridge between mind and machine.</span>
         </p>
         <p style={{ marginTop: '1rem' }}>
-          This prototype took 48 hours. Imagine what we could build together with OpenAI's resources. 
+          I'm building this prototype in real-time as I apply. Imagine what we could build together with OpenAI's resources. 
           Imagine AI that adapts to your stress through your breath. Imagine interfaces that make you healthier 
           just by using them.
         </p>

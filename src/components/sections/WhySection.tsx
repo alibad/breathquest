@@ -10,7 +10,7 @@ const WhySection = () => {
     <section id="why" ref={sectionRef}>
       <h2>Why This Exists</h2>
       <p style={{ fontSize: '1.2rem', marginBottom: '2rem', color: '#ccc' }}>
-        I saw the OpenAI role for "Interfaces for Future Intelligence" and immediately started building. 
+        I saw the OpenAI role for "Interfaces for Future Intelligence" today and immediately started building. 
         Not another ChatGPT wrapper. Not another voice assistant. Something genuinely new.
       </p>
       

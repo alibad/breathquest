@@ -12,7 +12,7 @@ export const whyCards = [
   {
     emoji: '🔬',
     title: 'Rapid Experimentation',
-    description: 'Built in 48 hours to demonstrate execution speed and creative vision. This isn\'t about perfection—it\'s about exploring what\'s possible when we reimagine human-AI interaction from first principles.'
+    description: 'From concept to working prototype in days, not months. This isn\'t about perfection—it\'s about exploring what\'s possible when we reimagine human-AI interaction from first principles.'
   }
 ];
 
