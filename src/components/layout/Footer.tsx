@@ -11,11 +11,8 @@ const Footer = () => {
         <a href="https://github.com/alibadereddin/breathquest" target="_blank" rel="noopener noreferrer">
           GitHub
         </a>
-        <a href="https://twitter.com/yourusername" target="_blank" rel="noopener noreferrer">
-          Twitter
-        </a>
-        <a href="mailto:your.email@example.com">
-          Email
+        <a href="http://linkedin.com/in/alibad" target="_blank" rel="noopener noreferrer">
+          LinkedIn
         </a>
         <a href="https://humanquest.net/deepdive" target="_blank" rel="noopener noreferrer">
           My Other Work

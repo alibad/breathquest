@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 
 const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
@@ -25,7 +26,20 @@ const Navbar = () => {
   return (
     <nav id="navbar" className={scrolled ? 'scrolled' : ''}>
       <div className="nav-container">
-        <div style={{ fontSize: '1.5rem' }}>🌀 Breath Quest</div>
+        <div style={{ 
+          fontSize: '1.5rem', 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '0.5rem' 
+        }}>
+          <Image 
+            src="/logo.svg" 
+            alt="Breath Quest Logo" 
+            width={32}
+            height={32}
+          />
+          Breath Quest
+        </div>
         <ul className="nav-links">
           <li>
             <a 
