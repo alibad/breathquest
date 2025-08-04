@@ -24,34 +24,34 @@ export const timelineItems = [
     date: 'Aug 3, 2025'
   },
   {
-    title: 'MVP Built',
-    description: 'Core breath detection via Web Audio API. Basic game mechanics working.',
-    status: 'done' as const,
-    date: 'Aug 4, 2025'
+    title: 'Landing Page Built',
+    description: 'Next.js landing page with breathing animations and project vision.',
+    status: 'in-progress' as const,
+    date: 'Aug 3, 2025'
+  },
+  {
+    title: 'MVP Development',
+    description: 'Core breath detection via Web Audio API. Basic game mechanics.',
+    status: 'planned' as const,
+    date: 'Aug 4-5, 2025'
   },
   {
     title: 'Pattern Recognition',
     description: 'Implement box breathing, 4-7-8, and Wim Hof detection algorithms.',
-    status: 'in-progress' as const,
-    date: 'Aug 5-6, 2025'
+    status: 'planned' as const,
+    date: 'Aug 6-7, 2025'
   },
   {
     title: 'AI Integration',
     description: 'Adaptive difficulty based on breath consistency. Personalized coaching.',
     status: 'planned' as const,
-    date: 'Aug 7-9, 2025'
-  },
-  {
-    title: 'Sensor Support',
-    description: 'Integrate chest strap sensors for medical-grade breath tracking.',
-    status: 'planned' as const,
-    date: 'Aug 10-12, 2025'
+    date: 'Aug 8-10, 2025'
   },
   {
     title: 'Public Launch',
-    description: 'Deploy multiplayer mode. Open source the codebase.',
+    description: 'Deploy full experience. Open source the codebase.',
     status: 'planned' as const,
-    date: 'Aug 15, 2025'
+    date: 'Aug 12-15, 2025'
   }
 ];
 
