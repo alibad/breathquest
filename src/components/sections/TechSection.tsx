@@ -1,0 +1,20 @@
+import { techCards } from '@/lib/constants';
+
+const TechSection = () => {
+  return (
+    <section id="tech">
+      <h2>Technical Approach</h2>
+      
+      <div className="tech-grid">
+        {techCards.map((card, index) => (
+          <div key={index} className="tech-card">
+            <h3>{card.emoji} {card.title}</h3>
+            <p>{card.description}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+};
+
+export default TechSection;
