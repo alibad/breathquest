@@ -17,6 +17,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Breath Quest - Novel Interfaces for Future Intelligence",
   description: "Building novel interfaces for future intelligence. What if we could control AI with our breath? A real-time experiment in embodied interaction.",
+  icons: {
+    icon: '/favicon.svg',
+  },
 };
 
 export default function RootLayout({
