@@ -20,21 +20,22 @@ const hypothesesData: HypothesisStatus[] = [
     id: 1,
     title: "Consumer microphones can reliably detect breathing patterns with sufficient accuracy for real-time gaming",
     description: "Testing whether standard smartphone/laptop microphones can detect breathing with gaming-level precision",
-    status: 'pending',
-    phase: 'Planning Phase 1',
+    status: 'in-progress',
+    phase: 'Phase 1 Complete - Testing',
     findings: [
-      'Research review shows SpiroSmart achieved 94.9% accuracy vs medical spirometer',
-      'Academic studies validate microphone breath detection is technically feasible',
-      'Frequency band filtering (100-1200 Hz) identified as key technique',
-      'Multi-feature analysis approach shows promise in research',
-      'Personal calibration critical for cross-user consistency'
+      'Phase 1: Basic RMS breath detection successfully implemented',
+      'Simple threshold detection works: 1.5x baseline = strong breath, 0.8x = moderate, 0.3x = hold',
+      '10-sample calibration provides fast baseline establishment',
+      'Real-time processing achieves ~60-120ms response time',
+      'Basic breath state visualization working: inhale/exhale/hold/normal',
+      'Ready for Phase 2: Research-enhanced algorithms'
     ],
     nextSteps: [
-      'Build Phase 1: Simple RMS-based breath detection',
-      'Implement basic threshold-based state detection',
-      'Test fundamental microphone breath detection capability',
-      'Establish baseline performance metrics',
-      'Build Phase 2: Add research-enhanced algorithms'
+      'Test Phase 1 accuracy with real users',
+      'Measure baseline performance metrics',
+      'Build Phase 2: Add frequency filtering (100-1200 Hz)',
+      'Implement envelope detection and LPC analysis',
+      'Add multi-feature fusion for improved accuracy'
     ]
   },
   {
@@ -42,15 +43,12 @@ const hypothesesData: HypothesisStatus[] = [
     title: "Breath-controlled gameplay is genuinely fun and engaging, not just a wellness novelty",
     description: "Validating whether breath gaming creates compelling gameplay experiences",
     status: 'pending',
-    findings: [
-      'Initial user feedback shows high engagement with breath controls',
-      'Natural breathing integration feels intuitive after brief learning period',
-      'Unique gameplay mechanics impossible with traditional input methods'
-    ],
     nextSteps: [
+      'Wait for Hypothesis 1 completion (reliable breath detection)',
       'Conduct structured user testing sessions',
       'Measure engagement vs traditional controls',
-      'Test extended play sessions for fatigue factors'
+      'Test extended play sessions for fatigue factors',
+      'Compare breath gaming vs traditional input enjoyment'
     ]
   },
   {
@@ -58,14 +56,12 @@ const hypothesesData: HypothesisStatus[] = [
     title: "Heart rate and respiratory sensors provide complementary data that enables adaptive gameplay mechanics beyond microphone detection",
     description: "Exploring multi-sensor integration for enhanced breath gaming",
     status: 'pending',
-    findings: [
-      'Microphone-only detection provides solid foundation',
-      'Additional sensors could enhance accuracy and enable new mechanics'
-    ],
     nextSteps: [
-      'Research wearable sensor integration options',
+      'Wait for Hypothesis 1 & 2 completion first',
+      'Research wearable sensor integration options (smartwatch, fitness bands)',
       'Design complementary data fusion algorithms',
-      'Prototype multi-sensor breath gaming experiences'
+      'Prototype multi-sensor breath gaming experiences',
+      'Compare microphone-only vs multi-sensor accuracy'
     ]
   },
   {
@@ -73,14 +69,12 @@ const hypothesesData: HypothesisStatus[] = [
     title: "Breath games create measurable health improvements that persist beyond gaming sessions",
     description: "Testing whether gaming can improve breathing techniques and respiratory health",
     status: 'pending',
-    findings: [
-      'Guided breathing exercises successfully implemented',
-      'Pattern recognition and feedback systems operational'
-    ],
     nextSteps: [
+      'Wait for reliable breath gaming system (Hypotheses 1-2)',
       'Design longitudinal health impact studies',
       'Partner with respiratory health professionals',
-      'Implement breathing pattern tracking over time'
+      'Implement breathing pattern tracking over time',
+      'Measure pre/post gaming breathing technique improvements'
     ]
   },
   {
@@ -89,9 +83,11 @@ const hypothesesData: HypothesisStatus[] = [
     description: "Comparing gamified vs traditional breathing technique education",
     status: 'pending',
     nextSteps: [
+      'Wait for proven breath gaming system (Hypotheses 1-2)',
       'Design comparative learning studies',
       'Create progressive difficulty breathing challenges',
-      'Measure learning speed vs traditional methods'
+      'Measure learning speed vs traditional breathing instruction',
+      'Partner with breathing technique instructors for validation'
     ]
   },
   {
@@ -100,9 +96,11 @@ const hypothesesData: HypothesisStatus[] = [
     description: "Exploring social aspects of synchronized breathing in gaming",
     status: 'pending',
     nextSteps: [
+      'Wait for single-player breath gaming validation (Hypotheses 1-2)',
       'Research multiplayer breath synchronization',
       'Design social breathing game mechanics',
-      'Study group breathing experiences'
+      'Study group breathing experiences',
+      'Compare social bonding vs traditional multiplayer games'
     ]
   }
 ];
