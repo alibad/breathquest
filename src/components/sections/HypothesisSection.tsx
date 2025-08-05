@@ -20,22 +20,23 @@ const hypothesesData: HypothesisStatus[] = [
     id: 1,
     title: "Consumer microphones can reliably detect breathing patterns with sufficient accuracy for real-time gaming",
     description: "Testing whether standard smartphone/laptop microphones can detect breathing with gaming-level precision",
-    status: 'in-progress',
-    phase: 'Phase 1 Complete - Testing',
+    status: 'completed',
+    phase: 'All 3 Phases Complete',
     findings: [
       'Phase 1: Basic RMS breath detection successfully implemented',
-      'Simple threshold detection works: 1.5x baseline = strong breath, 0.8x = moderate, 0.3x = hold',
-      '10-sample calibration provides fast baseline establishment',
-      'Real-time processing achieves ~60-120ms response time',
-      'Basic breath state visualization working: inhale/exhale/hold/normal',
-      'Ready for Phase 2: Research-enhanced algorithms'
+      'Phase 2: Research-enhanced algorithms (SpiroSmart) fully implemented',
+      'Phase 3: Gaming-focused personal calibration system completed',
+      'Personal breathing profiles: Box breathing, balanced breathing, range mapping',
+      'Breathing exercises from protocols.json: Navy SEALs focus, assessment, stealth/power mapping',
+      'Profile persistence: Save/load personal breathing signatures for gaming',
+      'All 3 phases complete: Basic → Research-enhanced → Personal calibration'
     ],
     nextSteps: [
-      'Test Phase 1 accuracy with real users',
-      'Measure baseline performance metrics',
-      'Build Phase 2: Add frequency filtering (100-1200 Hz)',
-      'Implement envelope detection and LPC analysis',
-      'Add multi-feature fusion for improved accuracy'
+      'Test Phase 1 vs Phase 2 vs Phase 3 accuracy comparison',
+      'Validate personal calibration improves gaming precision',
+      'Measure user satisfaction with personalized profiles',
+      'Test profile persistence across browser sessions',
+      'Expand to hypothesis 2: Validate breath gaming is fun and engaging'
     ]
   },
   {

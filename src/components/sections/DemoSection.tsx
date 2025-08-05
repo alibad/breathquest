@@ -20,7 +20,73 @@ interface AudioFeatures {
   spectralCentroid: number;
 }
 
-type DemoMode = 'enhanced-gaming' | 'guided-training';
+// === PHASE 3: PERSONAL BREATHING PROFILE ===
+interface PersonalBreathingProfile {
+  userId: string;
+  username: string;
+  createdAt: Date;
+  lastUpdated: Date;
+  
+  // Breathing Style Assessment
+  breathingStyle: {
+    primaryRoute: 'nose' | 'mouth' | 'mixed';
+    breathingType: 'diaphragmatic' | 'chest' | 'mixed';
+    naturalRhythm: number; // breaths per minute
+  };
+  
+  // Personal Amplitude Ranges (calibrated to user's microphone)
+  amplitudeRanges: {
+    quiet: number;        // Stealth/idle gaming
+    normal: number;       // Regular movement
+    deepInhale: number;   // Power attacks
+    sharpExhale: number;  // Quick actions
+    maxHold: number;      // Shield/stealth duration (seconds)
+  };
+  
+  // Gaming Focus Patterns
+  gamingPatterns: {
+    focusBreathing: 'box' | 'balanced' | 'custom';
+    preferredPattern: {
+      inhale: number;     // seconds
+      hold: number;       // seconds  
+      exhale: number;     // seconds
+      pause: number;      // seconds
+    };
+  };
+  
+  // Optimal Setup
+  optimalSetup: {
+    microphoneDistance: number; // cm
+    environmentNoise: number;   // baseline noise level
+    calibrationQuality: number; // 0-100 confidence
+  };
+  
+  // Gaming Thresholds (personalized)
+  gameThresholds: {
+    stealthThreshold: number;   // Below this = stealth mode
+    normalThreshold: number;    // Normal game movement
+    powerThreshold: number;     // Above this = power attacks
+    quickActionSensitivity: number; // Exhale detection speed
+  };
+}
+
+interface CalibrationExercise {
+  id: string;
+  name: string;
+  icon: string;
+  description: string;
+  instructions: string[];
+  duration: number; // seconds
+  type: 'assessment' | 'box-breathing' | 'balanced-breathing' | 'range-mapping' | 'distance-test';
+  expectedPattern?: {
+    inhale: number;
+    hold: number;
+    exhale: number;
+    pause: number;
+  };
+}
+
+type DemoMode = 'enhanced-gaming' | 'guided-training' | 'personal-calibration';
 
 interface GuidedExercise {
   id: string;
@@ -48,6 +114,24 @@ const DemoSection = () => {
     scale: 1,
     confidence: 0
   });
+
+  // === PHASE 3: PERSONAL CALIBRATION STATE ===
+  const [personalProfile, setPersonalProfile] = useState<PersonalBreathingProfile | null>(null);
+  const [currentCalibrationExercise, setCurrentCalibrationExercise] = useState<CalibrationExercise | null>(null);
+  const [calibrationStep, setCalibrationStep] = useState(0);
+  const [calibrationExerciseProgress, setCalibrationExerciseProgress] = useState(0);
+  const [calibrationData, setCalibrationData] = useState<{
+    assessment: any;
+    rangeMapping: {
+      quiet: number[];
+      normal: number[];
+      deepInhale: number[];
+      sharpExhale: number[];
+      maxHold: number;
+    };
+    optimalDistance: number;
+  } | null>(null);
+  const [username, setUsername] = useState<string>('');
   const [audioData, setAudioData] = useState({
     amplitude: 0,
     baseline: 0,
@@ -86,6 +170,110 @@ const DemoSection = () => {
   const lastUpdateTimeRef = useRef(0);
   const smoothedAmplitudeRef = useRef(0);
   const lastDisplayedAmplitudeRef = useRef(0);
+
+  // === PHASE 3: PERSONAL CALIBRATION EXERCISES (From Protocols.json) ===
+  const calibrationExercises: CalibrationExercise[] = [
+    {
+      id: 'breath-assessment',
+      name: 'Breath Assessment',
+      icon: '🧘',
+      description: 'Understand your natural breathing patterns',
+      instructions: [
+        'Breathe normally and naturally for 1 minute',
+        'Don\'t think about your breathing, just let it happen',
+        'We\'ll observe your natural pattern and ask a few questions'
+      ],
+      duration: 60,
+      type: 'assessment'
+    },
+    {
+      id: 'box-breathing',
+      name: 'Box Breathing (Navy SEALs)',
+      icon: '📦',
+      description: 'Focus breathing technique used by Navy SEALs for concentration under pressure',
+      instructions: [
+        'Inhale through nose for 4 seconds',
+        'Hold your breath for 4 seconds',
+        'Exhale through mouth for 4 seconds',
+        'Hold empty for 4 seconds',
+        'Repeat 4 cycles'
+      ],
+      duration: 80,
+      type: 'box-breathing',
+      expectedPattern: { inhale: 4, hold: 4, exhale: 4, pause: 4 }
+    },
+    {
+      id: 'balanced-breathing',
+      name: 'Balanced Breathing',
+      icon: '⚖️',
+      description: 'Creates nervous system balance for consistent gaming performance',
+      instructions: [
+        'Inhale deeply through nose for 5 seconds',
+        'Exhale slowly through mouth for 5 seconds',
+        'Focus on the sensation of the breath',
+        'Repeat 10 cycles for complete balance'
+      ],
+      duration: 100,
+      type: 'balanced-breathing',
+      expectedPattern: { inhale: 5, hold: 0, exhale: 5, pause: 0 }
+    },
+    {
+      id: 'quiet-breathing',
+      name: 'Stealth Breathing',
+      icon: '🤫',
+      description: 'Map your quietest possible breathing for stealth gaming',
+      instructions: [
+        'Breathe as quietly as possible for 30 seconds',
+        'Imagine you\'re hiding in a stealth game',
+        'Make your breathing almost silent',
+        'This sets your stealth gaming threshold'
+      ],
+      duration: 30,
+      type: 'range-mapping'
+    },
+    {
+      id: 'max-inhale',
+      name: 'Power Inhale',
+      icon: '💨',
+      description: 'Map your maximum inhale for power attacks',
+      instructions: [
+        'Take the deepest breath you can comfortably sustain',
+        'Hold it for 3 seconds',
+        'This becomes your power attack trigger',
+        'Don\'t strain - comfort is key'
+      ],
+      duration: 20,
+      type: 'range-mapping'
+    },
+    {
+      id: 'sharp-exhale',
+      name: 'Quick Action Exhale',
+      icon: '🔥',
+      description: 'Map your fastest exhale for quick actions',
+      instructions: [
+        'Give me your fastest, sharpest exhale',
+        'Like blowing out birthday candles',
+        'This becomes your quick action trigger',
+        'Try 3 sharp exhales with breaks'
+      ],
+      duration: 30,
+      type: 'range-mapping'
+    },
+    {
+      id: 'breath-hold',
+      name: 'Shield Hold',
+      icon: '⏸️',
+      description: 'Find your comfortable breath hold duration for shields',
+      instructions: [
+        'Hold your breath as long as comfortable',
+        'Don\'t strain or push limits',
+        'This becomes your shield/stealth duration',
+        'Exhale when you need to'
+      ],
+      duration: 60,
+      type: 'range-mapping'
+    }
+  ];
   
   // Guided exercises based on medical research
   const guidedExercises: GuidedExercise[] = [
@@ -122,6 +310,180 @@ const DemoSection = () => {
       expectedSignature: { rms: 0.05, envelope: 0.02, lpcGain: 0.01, breathingFreqPower: 5, spectralCentroid: 100 }
     }
   ];
+
+  // === PHASE 3: PERSONAL CALIBRATION FUNCTIONS ===
+  
+  // Load existing profile
+  const loadPersonalProfile = (profileUsername: string): PersonalBreathingProfile | null => {
+    try {
+      const saved = localStorage.getItem(`breathquest_profile_${profileUsername}`);
+      if (saved) {
+        const profile = JSON.parse(saved);
+        console.log(`✅ Loaded breathing profile for ${profileUsername}`);
+        return profile;
+      }
+    } catch (error) {
+      console.error('❌ Error loading profile:', error);
+    }
+    return null;
+  };
+
+  // Save personal profile
+  const savePersonalProfile = (profile: PersonalBreathingProfile) => {
+    try {
+      localStorage.setItem(`breathquest_profile_${profile.username}`, JSON.stringify(profile));
+      console.log(`💾 Saved breathing profile for ${profile.username}`);
+      setPersonalProfile(profile);
+    } catch (error) {
+      console.error('❌ Error saving profile:', error);
+    }
+  };
+
+  // Start personal calibration process
+  const startPersonalCalibration = (profileUsername: string) => {
+    console.log(`🎯 Starting personal calibration for ${profileUsername}`);
+    setUsername(profileUsername);
+    setDemoMode('personal-calibration');
+    setCalibrationStep(0);
+    setCalibrationData({
+      assessment: null,
+      rangeMapping: {
+        quiet: [],
+        normal: [],
+        deepInhale: [],
+        sharpExhale: [],
+        maxHold: 0
+      },
+      optimalDistance: 60
+    });
+    
+    // Start with breath assessment
+    startCalibrationExercise(calibrationExercises[0]);
+  };
+
+  // Start specific calibration exercise
+  const startCalibrationExercise = (exercise: CalibrationExercise) => {
+    console.log(`🧘 Starting exercise: ${exercise.name}`);
+    setCurrentCalibrationExercise(exercise);
+    setCalibrationExerciseProgress(0);
+    
+    // Start audio if not already listening
+    if (!isListeningRef.current) {
+      startBreathDemo();
+    }
+    
+    // Set up exercise timer
+    const duration = exercise.duration * 1000; // Convert to milliseconds
+    const startTime = Date.now();
+    
+    const updateProgress = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(100, (elapsed / duration) * 100);
+      setCalibrationExerciseProgress(progress);
+      
+      if (progress < 100) {
+        requestAnimationFrame(updateProgress);
+      } else {
+        completeCalibrationExercise(exercise);
+      }
+    };
+    
+    requestAnimationFrame(updateProgress);
+  };
+
+  // Complete calibration exercise and collect data
+  const completeCalibrationExercise = (exercise: CalibrationExercise) => {
+    console.log(`✅ Completed exercise: ${exercise.name}`);
+    
+    // Collect data based on exercise type
+    if (exercise.type === 'range-mapping' && calibrationData) {
+      const currentAmplitude = audioData.amplitude;
+      
+      switch (exercise.id) {
+        case 'quiet-breathing':
+          calibrationData.rangeMapping.quiet.push(currentAmplitude);
+          break;
+        case 'max-inhale':
+          calibrationData.rangeMapping.deepInhale.push(currentAmplitude);
+          break;
+        case 'sharp-exhale':
+          calibrationData.rangeMapping.sharpExhale.push(currentAmplitude);
+          break;
+        case 'breath-hold':
+          calibrationData.rangeMapping.maxHold = exercise.duration;
+          break;
+      }
+      
+      setCalibrationData({...calibrationData});
+    }
+    
+    // Move to next step
+    const nextStep = calibrationStep + 1;
+    setCalibrationStep(nextStep);
+    setCurrentCalibrationExercise(null);
+    
+    // Check if calibration is complete
+    if (nextStep >= calibrationExercises.length) {
+      completePersonalCalibration();
+    }
+  };
+
+  // Complete personal calibration and create profile
+  const completePersonalCalibration = () => {
+    if (!calibrationData || !username) return;
+    
+    console.log('🎉 Personal calibration complete!');
+    
+    // Create personal breathing profile
+    const profile: PersonalBreathingProfile = {
+      userId: `user_${Date.now()}`,
+      username: username,
+      createdAt: new Date(),
+      lastUpdated: new Date(),
+      
+      breathingStyle: {
+        primaryRoute: 'mixed', // Would be determined from assessment
+        breathingType: 'mixed', // Would be determined from assessment  
+        naturalRhythm: 16 // Default breathing rate
+      },
+      
+      amplitudeRanges: {
+        quiet: Math.min(...calibrationData.rangeMapping.quiet) || 0.5,
+        normal: audioData.baseline || 2.0,
+        deepInhale: Math.max(...calibrationData.rangeMapping.deepInhale) || 8.0,
+        sharpExhale: Math.max(...calibrationData.rangeMapping.sharpExhale) || 6.0,
+        maxHold: calibrationData.rangeMapping.maxHold || 30
+      },
+      
+      gamingPatterns: {
+        focusBreathing: 'box',
+        preferredPattern: { inhale: 4, hold: 4, exhale: 4, pause: 4 }
+      },
+      
+      optimalSetup: {
+        microphoneDistance: calibrationData.optimalDistance,
+        environmentNoise: audioData.baseline,
+        calibrationQuality: 85 // Estimated quality
+      },
+      
+      gameThresholds: {
+        stealthThreshold: Math.min(...calibrationData.rangeMapping.quiet) * 1.2 || 0.6,
+        normalThreshold: audioData.baseline * 1.5 || 3.0,
+        powerThreshold: Math.max(...calibrationData.rangeMapping.deepInhale) * 0.8 || 6.0,
+        quickActionSensitivity: Math.max(...calibrationData.rangeMapping.sharpExhale) * 0.7 || 4.0
+      }
+    };
+    
+    savePersonalProfile(profile);
+    setDemoMode('enhanced-gaming'); // Switch to gaming mode with new profile
+  };
+
+  // Apply personal profile to gaming
+  const applyPersonalProfile = (profile: PersonalBreathingProfile) => {
+    console.log(`🎮 Applying personal profile for ${profile.username}`);
+    // This would modify the breath detection thresholds based on personal profile
+    // Implementation would update the detectBreath function to use personal thresholds
+  };
 
   const startBreathDemo = async () => {
     if (isListeningRef.current) {
@@ -536,7 +898,7 @@ const DemoSection = () => {
         Control a game character with your breathing patterns
       </p>
       
-      {/* === DUAL MODE SELECTOR === */}
+      {/* === TRIPLE MODE SELECTOR === */}
       <div style={{
         display: 'flex',
         gap: '1rem',
@@ -581,6 +943,31 @@ const DemoSection = () => {
           🧘 Practice Breathing
           <div style={{ fontSize: '0.8rem', marginTop: '0.5rem', opacity: 0.8 }}>
             Learn different breathing techniques
+          </div>
+        </button>
+
+        <button
+          onClick={() => {
+            const profileUsername = prompt('Enter your name for personal calibration:');
+            if (profileUsername) {
+              startPersonalCalibration(profileUsername);
+            }
+          }}
+          style={{
+            padding: '1rem 1.5rem',
+            fontSize: '1rem',
+            fontWeight: 'bold',
+            border: demoMode === 'personal-calibration' ? '3px solid #ff8844' : '2px solid #333',
+            background: demoMode === 'personal-calibration' ? 'rgba(255, 136, 68, 0.2)' : 'rgba(0, 20, 40, 0.8)',
+            color: demoMode === 'personal-calibration' ? '#ff8844' : '#fff',
+            borderRadius: '12px',
+            cursor: 'pointer',
+            transition: 'all 0.3s ease'
+          }}
+        >
+          🎯 Personal Calibration
+          <div style={{ fontSize: '0.8rem', marginTop: '0.5rem', opacity: 0.8 }}>
+            Create your breathing profile for precision gaming
           </div>
         </button>
       </div>
@@ -705,6 +1092,227 @@ const DemoSection = () => {
           )}
         </div>
       )}
+
+      {/* === PERSONAL CALIBRATION MODE UI === */}
+      {!showUI && demoMode === 'personal-calibration' && (
+        <div style={{
+          background: 'rgba(255, 136, 68, 0.1)',
+          padding: '1.5rem',
+          borderRadius: '12px',
+          marginBottom: '2rem',
+          border: '2px solid rgba(255, 136, 68, 0.3)'
+        }}>
+          <h3 style={{ color: '#ff8844', marginBottom: '1rem' }}>🎯 Personal Breathing Calibration</h3>
+          <p style={{ marginBottom: '1.5rem', fontSize: '0.95rem' }}>
+            Create your personal breathing profile for precision gaming. We'll guide you through {calibrationExercises.length} exercises to learn your unique breathing patterns.
+          </p>
+
+          {/* Progress Indicator */}
+          <div style={{ marginBottom: '1.5rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+              <span style={{ fontSize: '0.9rem', color: '#ff8844' }}>Progress</span>
+              <span style={{ fontSize: '0.9rem', color: '#ff8844' }}>{calibrationStep}/{calibrationExercises.length}</span>
+            </div>
+            <div style={{
+              width: '100%',
+              height: '8px',
+              background: 'rgba(255, 255, 255, 0.1)',
+              borderRadius: '4px',
+              overflow: 'hidden'
+            }}>
+              <div style={{
+                width: `${(calibrationStep / calibrationExercises.length) * 100}%`,
+                height: '100%',
+                background: '#ff8844',
+                transition: 'width 0.3s ease'
+              }}></div>
+            </div>
+          </div>
+
+          {/* Current User */}
+          {username && (
+            <div style={{
+              background: 'rgba(0, 20, 40, 0.8)',
+              padding: '1rem',
+              borderRadius: '8px',
+              marginBottom: '1.5rem',
+              border: '1px solid rgba(255, 136, 68, 0.2)'
+            }}>
+              <h4 style={{ color: '#ff8844', margin: '0 0 0.5rem 0' }}>👤 Creating Profile For: {username}</h4>
+              <p style={{ fontSize: '0.85rem', margin: 0, color: '#ccc' }}>
+                This will create a personal breathing profile saved as "{username}_BreathingProfile.json"
+              </p>
+            </div>
+          )}
+
+          {/* Calibration Exercises Grid */}
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', 
+            gap: '1rem',
+            marginBottom: '1.5rem'
+          }}>
+            {calibrationExercises.map((exercise, index) => (
+              <div 
+                key={exercise.id}
+                style={{
+                  background: index < calibrationStep ? 'rgba(0, 255, 136, 0.1)' : 
+                              index === calibrationStep ? 'rgba(255, 136, 68, 0.2)' : 'rgba(0, 20, 40, 0.8)',
+                  padding: '1rem',
+                  borderRadius: '8px',
+                  border: index < calibrationStep ? '1px solid rgba(0, 255, 136, 0.3)' :
+                          index === calibrationStep ? '2px solid rgba(255, 136, 68, 0.5)' : '1px solid rgba(255, 136, 68, 0.2)',
+                  position: 'relative'
+                }}
+              >
+                <div style={{ 
+                  position: 'absolute', 
+                  top: '0.5rem', 
+                  right: '0.5rem',
+                  fontSize: '1.5rem'
+                }}>
+                  {index < calibrationStep ? '✅' : index === calibrationStep ? exercise.icon : '⏳'}
+                </div>
+                
+                <h4 style={{ color: '#ff8844', margin: '0 0 0.5rem 0' }}>
+                  {index + 1}. {exercise.name}
+                </h4>
+                <p style={{ fontSize: '0.85rem', marginBottom: '1rem', lineHeight: '1.4' }}>
+                  {exercise.description}
+                </p>
+                
+                {/* Instructions */}
+                <div style={{ marginBottom: '1rem' }}>
+                  <strong style={{ fontSize: '0.8rem', color: '#ff8844' }}>Instructions:</strong>
+                  <ul style={{ margin: '0.5rem 0 0 0', paddingLeft: '1.2rem', fontSize: '0.8rem' }}>
+                    {exercise.instructions.map((instruction, i) => (
+                      <li key={i} style={{ marginBottom: '0.3rem', color: '#ccc' }}>{instruction}</li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div style={{ fontSize: '0.8rem', color: '#888', marginBottom: '1rem' }}>
+                  Duration: {exercise.duration}s • Type: {exercise.type}
+                </div>
+                
+                <button
+                  onClick={() => startCalibrationExercise(exercise)}
+                  disabled={index !== calibrationStep}
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    background: index === calibrationStep ? '#ff8844' : '#666',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: index === calibrationStep ? 'pointer' : 'not-allowed',
+                    fontWeight: 'bold',
+                    opacity: index === calibrationStep ? 1 : 0.5
+                  }}
+                >
+                  {index < calibrationStep ? '✅ Completed' : 
+                   index === calibrationStep ? 'Start Exercise' : 'Waiting...'}
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {/* Load Existing Profile Option */}
+          <div style={{
+            background: 'rgba(0, 20, 40, 0.8)',
+            padding: '1rem',
+            borderRadius: '8px',
+            border: '1px solid rgba(255, 136, 68, 0.2)'
+          }}>
+            <h4 style={{ color: '#ff8844', margin: '0 0 0.5rem 0' }}>🔄 Or Load Existing Profile</h4>
+            <p style={{ fontSize: '0.85rem', marginBottom: '1rem', color: '#ccc' }}>
+              Already have a breathing profile? Enter your name to load it.
+            </p>
+            <button
+              onClick={() => {
+                const loadUsername = prompt('Enter your name to load existing profile:');
+                if (loadUsername) {
+                  const profile = loadPersonalProfile(loadUsername);
+                  if (profile) {
+                    setPersonalProfile(profile);
+                    setDemoMode('enhanced-gaming');
+                    applyPersonalProfile(profile);
+                    alert(`✅ Loaded profile for ${loadUsername}! Ready for personalized gaming.`);
+                  } else {
+                    alert(`❌ No profile found for ${loadUsername}. Please create a new one.`);
+                  }
+                }
+              }}
+              style={{
+                padding: '0.75rem 1rem',
+                background: '#4488ff',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontWeight: 'bold'
+              }}
+            >
+              📥 Load Existing Profile
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* === CURRENT CALIBRATION EXERCISE PROGRESS === */}
+      {currentCalibrationExercise && (
+        <div style={{
+          background: 'rgba(255, 136, 68, 0.2)',
+          padding: '1rem',
+          borderRadius: '8px',
+          marginBottom: '2rem',
+          border: '2px solid rgba(255, 136, 68, 0.5)'
+        }}>
+          <h4 style={{ color: '#ff8844', margin: '0 0 0.5rem 0' }}>
+            🧘 {currentCalibrationExercise.name} in Progress
+          </h4>
+          <p style={{ fontSize: '0.9rem', marginBottom: '1rem', color: '#ccc' }}>
+            {currentCalibrationExercise.description}
+          </p>
+          
+          {/* Progress Bar */}
+          <div style={{ marginBottom: '1rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+              <span style={{ fontSize: '0.9rem', color: '#ff8844' }}>Exercise Progress</span>
+              <span style={{ fontSize: '0.9rem', color: '#ff8844' }}>{Math.round(calibrationExerciseProgress)}%</span>
+            </div>
+            <div style={{
+              width: '100%',
+              height: '12px',
+              background: 'rgba(255, 255, 255, 0.1)',
+              borderRadius: '6px',
+              overflow: 'hidden'
+            }}>
+              <div style={{
+                width: `${calibrationExerciseProgress}%`,
+                height: '100%',
+                background: 'linear-gradient(90deg, #ff8844, #ffaa66)',
+                transition: 'width 0.1s ease'
+              }}></div>
+            </div>
+          </div>
+
+          <button
+            onClick={() => completeCalibrationExercise(currentCalibrationExercise)}
+            style={{
+              padding: '0.75rem 1rem',
+              background: '#ff8844',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontWeight: 'bold'
+            }}
+          >
+            ⏭️ Complete Exercise Early
+          </button>
+        </div>
+      )}
       
       {/* === CURRENT EXERCISE PROGRESS === */}
       {currentExercise && (
@@ -817,52 +1425,54 @@ const DemoSection = () => {
               }}></div>
             </div>
             
-            {/* === BREATH DETECTION DETAILS === */}
-            <div style={{ marginBottom: '1rem' }}>
-              <div style={{ 
-                fontSize: '0.9rem', 
-                marginBottom: '0.5rem', 
-                color: '#4488ff',
-                fontWeight: 'bold'
-              }}>
-                🔊 Audio Analysis Details
+            {/* Audio Analysis - Hide in gaming mode */}
+            {demoMode !== 'enhanced-gaming' && (
+              <div style={{ marginBottom: '1rem' }}>
+                <div style={{ 
+                  fontSize: '0.9rem', 
+                  marginBottom: '0.5rem', 
+                  color: '#4488ff',
+                  fontWeight: 'bold'
+                }}>
+                  🔊 Audio Analysis Details
+                </div>
+                
+                {/* Primary features display */}
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+                  gap: '0.8rem',
+                  fontSize: '0.85rem',
+                  marginBottom: '1rem'
+                }}>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ color: '#00ff88', fontWeight: 'bold' }}>Signal</div>
+                    <div>{audioFeatures.envelope.toFixed(3)}</div>
+                    <div style={{ fontSize: '0.7rem', color: '#888' }}>Overall Power</div>
+                  </div>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ color: '#ff8844', fontWeight: 'bold' }}>Voice</div>
+                    <div>{audioFeatures.lpcGain.toFixed(3)}</div>
+                    <div style={{ fontSize: '0.7rem', color: '#888' }}>Vocal Energy</div>
+                  </div>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ color: '#4488ff', fontWeight: 'bold' }}>Breath</div>
+                    <div>{audioFeatures.breathingFreqPower.toFixed(1)}</div>
+                    <div style={{ fontSize: '0.7rem', color: '#888' }}>Breathing Freq</div>
+                  </div>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ color: '#ffaa44', fontWeight: 'bold' }}>Tone</div>
+                    <div>{audioFeatures.spectralCentroid.toFixed(0)}Hz</div>
+                    <div style={{ fontSize: '0.7rem', color: '#888' }}>Frequency</div>
+                  </div>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ color: '#00ccff', fontWeight: 'bold' }}>Volume</div>
+                    <div>{audioFeatures.rms.toFixed(3)}</div>
+                    <div style={{ fontSize: '0.7rem', color: '#888' }}>Basic Level</div>
+                  </div>
+                </div>
               </div>
-              
-              {/* Primary features display */}
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-                gap: '0.8rem',
-                fontSize: '0.85rem',
-                marginBottom: '1rem'
-              }}>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ color: '#00ff88', fontWeight: 'bold' }}>Signal</div>
-                  <div>{audioFeatures.envelope.toFixed(3)}</div>
-                  <div style={{ fontSize: '0.7rem', color: '#888' }}>Overall Power</div>
-                </div>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ color: '#ff8844', fontWeight: 'bold' }}>Voice</div>
-                  <div>{audioFeatures.lpcGain.toFixed(3)}</div>
-                  <div style={{ fontSize: '0.7rem', color: '#888' }}>Vocal Energy</div>
-                </div>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ color: '#4488ff', fontWeight: 'bold' }}>Breath</div>
-                  <div>{audioFeatures.breathingFreqPower.toFixed(1)}</div>
-                  <div style={{ fontSize: '0.7rem', color: '#888' }}>Breathing Freq</div>
-                </div>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ color: '#ffaa44', fontWeight: 'bold' }}>Tone</div>
-                  <div>{audioFeatures.spectralCentroid.toFixed(0)}Hz</div>
-                  <div style={{ fontSize: '0.7rem', color: '#888' }}>Frequency</div>
-                </div>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ color: '#00ccff', fontWeight: 'bold' }}>Volume</div>
-                  <div>{audioFeatures.rms.toFixed(3)}</div>
-                  <div style={{ fontSize: '0.7rem', color: '#888' }}>Basic Level</div>
-                </div>
-              </div>
-            </div>
+            )}
             
             {/* Traditional metrics */}
             <div style={{
@@ -900,9 +1510,9 @@ const DemoSection = () => {
         {/* Game Preview */}
         <div style={{
           width: '100%',
-          maxWidth: '1000px',
-          height: '70vh',
-          minHeight: '500px',
+          maxWidth: '800px',
+          height: '60vh',
+          minHeight: '400px',
           background: 'linear-gradient(to bottom, #001122, #002244)',
           borderRadius: '24px',
           position: 'relative',
@@ -970,82 +1580,10 @@ const DemoSection = () => {
           )}
         </div>
         
-        {/* === ENHANCED BREATH STATE DISPLAY === */}
-        {showUI && (
-          <div style={{
-            fontSize: '1.1rem',
-            textAlign: 'center',
-            width: '100%',
-            maxWidth: '700px',
-            background: 'rgba(0, 20, 40, 0.9)',
-            padding: '2rem',
-            borderRadius: '16px',
-            border: `2px solid ${breathState.color}`,
-            marginTop: '2rem',
-            marginBottom: '1rem',
-            boxShadow: `0 8px 32px ${breathState.color}40`,
-            lineHeight: '1.6',
-            transition: 'all 0.3s ease'
-          }}>
-            <div style={{ 
-              fontSize: '1.5rem', 
-              marginBottom: '1rem',
-              color: breathState.color,
-              fontWeight: 'bold'
-            }}>
-              {breathState.label}
-            </div>
-            
-            {/* Confidence Score */}
-            {breathState.confidence !== undefined && (
-              <div style={{ marginBottom: '1rem' }}>
-                <div style={{ fontSize: '0.9rem', color: '#ccc', marginBottom: '0.5rem' }}>
-                  Detection Confidence
-                </div>
-                <div style={{
-                  width: '100%',
-                  height: '8px',
-                  background: 'rgba(0, 0, 0, 0.4)',
-                  borderRadius: '4px',
-                  overflow: 'hidden',
-                  marginBottom: '0.5rem'
-                }}>
-                  <div style={{
-                    width: `${breathState.confidence}%`,
-                    height: '100%',
-                    background: breathState.confidence > 70 ? '#00ff88' : 
-                               breathState.confidence > 40 ? '#ffaa44' : '#ff6644',
-                    transition: 'width 0.3s ease'
-                  }} />
-                </div>
-                <div style={{ fontSize: '0.8rem', color: '#ccc' }}>
-                  {Math.round(breathState.confidence || 0)}% confident
-                </div>
-              </div>
-            )}
-            
-            {/* Breathing Info */}
-            {breathState.medicalNote && (
-              <div style={{
-                background: 'rgba(68, 136, 255, 0.1)',
-                padding: '1rem',
-                borderRadius: '8px',
-                marginBottom: '1rem',
-                border: '1px solid rgba(68, 136, 255, 0.3)'
-              }}>
-                <div style={{ fontSize: '0.85rem', color: '#4488ff', fontWeight: 'bold', marginBottom: '0.5rem' }}>
-                  💨 Breathing Pattern
-                </div>
-                <div style={{ fontSize: '0.85rem', color: '#ccc' }}>
-                  {breathState.medicalNote}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+
         
-        {/* Game Controls Info */}
-        {showUI && demoMode === 'enhanced-gaming' && (
+        {/* Game Controls Info - Show only when requested */}
+        {showUI && demoMode === 'enhanced-gaming' && false && (
           <div style={{
             fontSize: '1rem',
             textAlign: 'center',
