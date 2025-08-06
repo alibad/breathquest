@@ -22,7 +22,8 @@ export function AudioVideoRecorder({ isListening, canvasRefs, audioStream }: Aud
     { index: 0, label: 'Time Domain Analysis', color: '#00ff88', selected: true },
     { index: 1, label: 'Amplitude Envelope Analysis', color: '#ff8844', selected: true },
     { index: 2, label: 'Frequency Domain Analysis', color: '#4488ff', selected: true },
-    { index: 3, label: 'Multi-Band Frequency Analysis', color: '#8b5cf6', selected: true }
+    { index: 3, label: 'Multi-Band Frequency Analysis', color: '#8b5cf6', selected: true },
+    { index: 4, label: 'Advanced Spectral Analysis', color: '#9333ea', selected: true }
   ]);
   const [showConfig, setShowConfig] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -313,41 +314,23 @@ export function AudioVideoRecorder({ isListening, canvasRefs, audioStream }: Aud
           {isRecording ? '⏹️ Stop Recording' : '🎥 Start Recording'}
         </button>
 
-              {recordedChunks.length > 0 && (
-          <>
-            <button
-              onClick={downloadRecording}
-              style={{
-                padding: '0.75rem 1.5rem',
-                borderRadius: '8px',
-                border: '2px solid #00ff88',
-                background: 'rgba(0, 255, 136, 0.1)',
-                color: '#00ff88',
-                cursor: 'pointer',
-                fontSize: '1rem',
-                fontWeight: 'bold'
-              }}
-            >
-              💾 Download Video
-            </button>
-            
-            <button
-              onClick={() => setRecordedChunks([])}
-              style={{
-                padding: '0.75rem 1.5rem',
-                borderRadius: '8px',
-                border: '2px solid #ff4444',
-                background: 'rgba(255, 68, 68, 0.1)',
-                color: '#ff4444',
-                cursor: 'pointer',
-                fontSize: '1rem',
-                fontWeight: 'bold'
-              }}
-            >
-                          🗑️ Reset
+                      {recordedChunks.length > 0 && (
+          <button
+            onClick={downloadRecording}
+            style={{
+              padding: '0.75rem 1.5rem',
+              borderRadius: '8px',
+              border: '2px solid #00ff88',
+              background: 'rgba(0, 255, 136, 0.1)',
+              color: '#00ff88',
+              cursor: 'pointer',
+              fontSize: '1rem',
+              fontWeight: 'bold'
+            }}
+          >
+            💾 Download Video
           </button>
-        </>
-      )}
+        )}
 
       {/* Configure Button - Inline with controls */}
       {!isRecording && recordedChunks.length === 0 && (
@@ -366,7 +349,7 @@ export function AudioVideoRecorder({ isListening, canvasRefs, audioStream }: Aud
             gap: '0.4rem'
           }}
         >
-          ⚙️ Configure ({selectedCanvases.filter(item => item.selected).length}/4)
+          ⚙️ Configure ({selectedCanvases.filter(item => item.selected).length}/5)
         </button>
       )}
 

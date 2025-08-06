@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { TimeDomainTool } from '@/components/audio-tools/TimeDomainTool';
 import { FrequencyDomainTool } from '@/components/audio-tools/FrequencyDomainTool';
 import { AmplitudeEnvelopeTool } from '@/components/audio-tools/AmplitudeEnvelopeTool';
 import { FrequencyBandTool } from '@/components/audio-tools/FrequencyBandTool';
+import { AdvancedSpectralTool } from '@/components/audio-tools/AdvancedSpectralTool';
 
 import { AudioConfigurationPanel } from '@/components/audio-tools/AudioConfigurationPanel';
 import { AudioVideoRecorder } from '@/components/audio-tools/AudioVideoRecorder';
@@ -31,6 +32,7 @@ export default function AudioToolsPage() {
   const frequencyDomainCanvasRef = useRef<HTMLCanvasElement>(null);
   const amplitudeEnvelopeCanvasRef = useRef<HTMLCanvasElement>(null);
   const frequencyBandCanvasRef = useRef<HTMLCanvasElement>(null);
+  const advancedSpectralCanvasRef = useRef<HTMLCanvasElement>(null);
 
 
   const startAudioCapture = async () => {
@@ -59,7 +61,6 @@ export default function AudioToolsPage() {
       
       setIsListening(true);
       isListeningRef.current = true;
-      processAudio();
       
     } catch (error) {
       console.error('Error accessing microphone:', error);
@@ -95,32 +96,39 @@ export default function AudioToolsPage() {
     });
   };
 
-  const processAudio = useCallback(() => {
-    if (!analyserRef.current || !audioContextRef.current) return;
-    
-    const bufferLength = analyserRef.current.fftSize;
-    const timeDomainData = new Uint8Array(bufferLength);
-    const frequencyData = new Uint8Array(analyserRef.current.frequencyBinCount);
-    
-    // Get both time and frequency domain data
-    analyserRef.current.getByteTimeDomainData(timeDomainData);
-    analyserRef.current.getByteFrequencyData(frequencyData);
-    
-    // Update state
-    setAudioData({
-      timeDomain: timeDomainData,
-      frequencyDomain: frequencyData,
-      sampleRate: audioContextRef.current.sampleRate,
-      bufferSize: bufferLength
-    });
-    
-    // Continue processing
-    if (isListeningRef.current) {
-      animationRef.current = requestAnimationFrame(processAudio);
+
+
+  // Start processing when listening begins
+  useEffect(() => {
+    if (isListening && analyserRef.current && audioContextRef.current) {
+      const startProcessing = () => {
+        if (!analyserRef.current || !audioContextRef.current) return;
+        
+        const bufferLength = analyserRef.current.fftSize;
+        const timeDomainData = new Uint8Array(bufferLength);
+        const frequencyData = new Uint8Array(analyserRef.current.frequencyBinCount);
+        
+        // Get both time and frequency domain data
+        analyserRef.current.getByteTimeDomainData(timeDomainData);
+        analyserRef.current.getByteFrequencyData(frequencyData);
+        
+        // Update state
+        setAudioData({
+          timeDomain: timeDomainData,
+          frequencyDomain: frequencyData,
+          sampleRate: audioContextRef.current.sampleRate,
+          bufferSize: bufferLength
+        });
+        
+        // Continue processing
+        if (isListeningRef.current) {
+          animationRef.current = requestAnimationFrame(startProcessing);
+        }
+      };
+      
+      startProcessing();
     }
-  }, []); // Empty dependency array since we use refs
-
-
+  }, [isListening]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -203,7 +211,7 @@ export default function AudioToolsPage() {
       {isListening && (
         <AudioVideoRecorder 
           isListening={isListening}
-          canvasRefs={[timeDomainCanvasRef, amplitudeEnvelopeCanvasRef, frequencyDomainCanvasRef, frequencyBandCanvasRef]}
+          canvasRefs={[timeDomainCanvasRef, amplitudeEnvelopeCanvasRef, frequencyDomainCanvasRef, frequencyBandCanvasRef, advancedSpectralCanvasRef]}
           audioStream={audioStreamRef.current || undefined}
         />
       )}
@@ -218,6 +226,7 @@ export default function AudioToolsPage() {
           <AmplitudeEnvelopeTool audioData={audioData} canvasRef={amplitudeEnvelopeCanvasRef} />
           <FrequencyDomainTool audioData={audioData} canvasRef={frequencyDomainCanvasRef} />
           <FrequencyBandTool audioData={audioData} canvasRef={frequencyBandCanvasRef} />
+          <AdvancedSpectralTool audioData={audioData} canvasRef={advancedSpectralCanvasRef} />
         </div>
       )}
 
@@ -252,170 +261,5 @@ export default function AudioToolsPage() {
         </div>
       )}
     </div>
-  );
-}
-
-// Time Domain Visualizer Component
-function TimeDomainVisualizer({ data }: { data: Uint8Array }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  useEffect(() => {
-    if (!canvasRef.current || data.length === 0) return;
-
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // Set canvas size
-    const width = canvas.width;
-    const height = canvas.height;
-
-    // Clear canvas
-    ctx.fillStyle = '#000000';
-    ctx.fillRect(0, 0, width, height);
-
-    // Draw waveform
-    ctx.strokeStyle = '#00ff88';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-
-    const sliceWidth = width / data.length;
-    let x = 0;
-
-    for (let i = 0; i < data.length; i++) {
-      const v = (data[i] - 128) / 128; // Normalize to -1 to 1
-      const y = (v * height / 2) + (height / 2);
-
-      if (i === 0) {
-        ctx.moveTo(x, y);
-      } else {
-        ctx.lineTo(x, y);
-      }
-
-      x += sliceWidth;
-    }
-
-    ctx.stroke();
-
-    // Draw center line
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(0, height / 2);
-    ctx.lineTo(width, height / 2);
-    ctx.stroke();
-
-  }, [data]);
-
-  return (
-    <canvas
-      ref={canvasRef}
-      width={400}
-      height={200}
-      style={{
-        width: '100%',
-        height: '200px',
-        border: '1px solid rgba(0, 255, 136, 0.3)',
-        borderRadius: '8px'
-      }}
-    />
-  );
-}
-
-// Frequency Domain Visualizer Component
-function FrequencyDomainVisualizer({ 
-  data, 
-  sampleRate, 
-  bufferSize 
-}: { 
-  data: Uint8Array;
-  sampleRate: number;
-  bufferSize: number;
-}) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  useEffect(() => {
-    if (!canvasRef.current || data.length === 0) return;
-
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // Set canvas size
-    const width = canvas.width;
-    const height = canvas.height;
-
-    // Clear canvas
-    ctx.fillStyle = '#000000';
-    ctx.fillRect(0, 0, width, height);
-
-    // Calculate frequency resolution
-    const freqResolution = sampleRate / bufferSize;
-    const maxFreq = sampleRate / 2; // Nyquist frequency
-
-    // Draw frequency bars
-    const barWidth = width / data.length;
-
-    for (let i = 0; i < data.length; i++) {
-      const barHeight = (data[i] / 255) * height;
-      const freq = i * freqResolution;
-      
-      // Color coding by frequency range
-      let color;
-      if (freq < 500) {
-        color = '#ff4444'; // Low frequencies - red
-      } else if (freq < 2000) {
-        color = '#ffff44'; // Mid frequencies - yellow
-      } else {
-        color = '#4488ff'; // High frequencies - blue
-      }
-
-      ctx.fillStyle = color;
-      ctx.fillRect(i * barWidth, height - barHeight, barWidth - 1, barHeight);
-    }
-
-    // Draw frequency labels
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-    ctx.font = '12px monospace';
-    ctx.textAlign = 'center';
-    
-    // Mark important frequency ranges
-    const markers = [
-      { freq: 100, label: '100Hz' },
-      { freq: 500, label: '500Hz' },
-      { freq: 1000, label: '1kHz' },
-      { freq: 2000, label: '2kHz' },
-      { freq: 5000, label: '5kHz' }
-    ];
-
-    markers.forEach(marker => {
-      if (marker.freq <= maxFreq) {
-        const x = (marker.freq / maxFreq) * width;
-        ctx.fillText(marker.label, x, height - 5);
-        
-        // Draw vertical line
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, height - 20);
-        ctx.stroke();
-      }
-    });
-
-  }, [data, sampleRate, bufferSize]);
-
-  return (
-    <canvas
-      ref={canvasRef}
-      width={400}
-      height={200}
-      style={{
-        width: '100%',
-        height: '200px',
-        border: '1px solid rgba(68, 136, 255, 0.3)',
-        borderRadius: '8px'
-      }}
-    />
   );
 }

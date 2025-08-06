@@ -47,7 +47,7 @@ export function ZeroCrossingTool({ audioData, canvasRef }: ZeroCrossingToolProps
     const centerPoint = 128; // Middle point for 8-bit audio (0-255 range)
     let crossings = 0;
     const crossingPositions: number[] = [];
-    let segmentLengths: number[] = [];
+    const segmentLengths: number[] = [];
     let lastCrossing = 0;
 
     // Convert to signed values and detect zero crossings

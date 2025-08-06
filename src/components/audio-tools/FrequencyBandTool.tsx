@@ -98,7 +98,7 @@ export function FrequencyBandTool({ audioData, canvasRef }: FrequencyBandToolPro
       const maxEnergyIndex = energies.indexOf(Math.max(...energies));
       setDominantBand(bands[maxEnergyIndex]?.name || '');
     }
-  }, [audioData.frequencyDomain, audioData.sampleRate, bandSet]);
+  }, [audioData.frequencyDomain, audioData.sampleRate, calculateBandEnergies, bands]);
 
   const getBandPercentage = (energy: number) => {
     return totalEnergy > 0 ? (energy / totalEnergy) * 100 : 0;
