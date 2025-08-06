@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { TimeDomainTool } from '@/components/audio-tools/TimeDomainTool';
 import { FrequencyDomainTool } from '@/components/audio-tools/FrequencyDomainTool';
 import { AudioConfigurationPanel } from '@/components/audio-tools/AudioConfigurationPanel';
+import { AudioVideoRecorder } from '@/components/audio-tools/AudioVideoRecorder';
 
 export default function AudioToolsPage() {
   const [isListening, setIsListening] = useState(false);
@@ -20,11 +21,17 @@ export default function AudioToolsPage() {
   const microphoneRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const animationRef = useRef<number | null>(null);
   const isListeningRef = useRef<boolean>(false);
+  const audioStreamRef = useRef<MediaStream | null>(null);
+  
+  // Canvas refs for recording
+  const timeDomainCanvasRef = useRef<HTMLCanvasElement>(null);
+  const frequencyDomainCanvasRef = useRef<HTMLCanvasElement>(null);
 
   const startAudioCapture = async () => {
     try {
       // Get microphone access
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioStreamRef.current = stream;
       
       // Create audio context
       audioContextRef.current = new AudioContext();
@@ -65,6 +72,12 @@ export default function AudioToolsPage() {
     
     if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
       audioContextRef.current.close();
+    }
+
+    // Stop audio stream tracks
+    if (audioStreamRef.current) {
+      audioStreamRef.current.getTracks().forEach(track => track.stop());
+      audioStreamRef.current = null;
     }
     
     // Reset audio data
@@ -180,14 +193,23 @@ export default function AudioToolsPage() {
       {/* Audio Configuration Info */}
       {isListening && <AudioConfigurationPanel audioData={audioData} />}
 
+      {/* Recording Controls */}
+      {isListening && (
+        <AudioVideoRecorder 
+          isListening={isListening}
+          canvasRefs={[timeDomainCanvasRef, frequencyDomainCanvasRef]}
+          audioStream={audioStreamRef.current || undefined}
+        />
+      )}
+
       {/* Audio Analysis Tools */}
       {isListening && (
         <div style={{
           maxWidth: '1000px',
           margin: '0 auto'
         }}>
-          <TimeDomainTool audioData={audioData} />
-          <FrequencyDomainTool audioData={audioData} />
+          <TimeDomainTool audioData={audioData} canvasRef={timeDomainCanvasRef} />
+          <FrequencyDomainTool audioData={audioData} canvasRef={frequencyDomainCanvasRef} />
         </div>
       )}
 

@@ -8,6 +8,7 @@ interface FrequencyDomainVisualizerProps {
   bufferSize: number;
   showSpectralCentroid?: boolean;
   spectralCentroid?: number;
+  canvasRef?: any;
 }
 
 export function FrequencyDomainVisualizer({ 
@@ -15,9 +16,11 @@ export function FrequencyDomainVisualizer({
   sampleRate, 
   bufferSize, 
   showSpectralCentroid = false, 
-  spectralCentroid = 0 
+  spectralCentroid = 0,
+  canvasRef: externalCanvasRef
 }: FrequencyDomainVisualizerProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const internalCanvasRef = useRef<HTMLCanvasElement>(null);
+  const canvasRef = externalCanvasRef || internalCanvasRef;
 
   useEffect(() => {
     const canvas = canvasRef.current;

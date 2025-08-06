@@ -10,9 +10,10 @@ interface FrequencyDomainToolProps {
     sampleRate: number;
     bufferSize: number;
   };
+  canvasRef?: any;
 }
 
-export function FrequencyDomainTool({ audioData }: FrequencyDomainToolProps) {
+export function FrequencyDomainTool({ audioData, canvasRef }: FrequencyDomainToolProps) {
   const [showSpectralCentroid, setShowSpectralCentroid] = useState(true);
   // Calculate spectral centroid - the "center of mass" of the spectrum
   const calculateSpectralCentroid = (frequencyData: Uint8Array, sampleRate: number): number => {
@@ -108,6 +109,7 @@ export function FrequencyDomainTool({ audioData }: FrequencyDomainToolProps) {
           bufferSize={audioData.bufferSize}
           showSpectralCentroid={showSpectralCentroid}
           spectralCentroid={spectralCentroid}
+          canvasRef={canvasRef}
         />
       </div>
 

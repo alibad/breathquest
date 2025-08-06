@@ -9,9 +9,10 @@ interface TimeDomainToolProps {
     sampleRate: number;
     bufferSize: number;
   };
+  canvasRef?: any;
 }
 
-export function TimeDomainTool({ audioData }: TimeDomainToolProps) {
+export function TimeDomainTool({ audioData, canvasRef }: TimeDomainToolProps) {
   // Helper functions for real-time measurements
   const calculateRMS = (data: Uint8Array): number => {
     if (data.length === 0) return 0;
@@ -55,7 +56,7 @@ export function TimeDomainTool({ audioData }: TimeDomainToolProps) {
       <div style={{
         marginBottom: '1rem'
       }}>
-        <TimeDomainVisualizer data={audioData.timeDomain} />
+        <TimeDomainVisualizer data={audioData.timeDomain} canvasRef={canvasRef} />
       </div>
 
       <div style={{

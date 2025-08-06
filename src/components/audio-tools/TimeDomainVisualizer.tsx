@@ -4,10 +4,12 @@ import { useEffect, useRef } from 'react';
 
 interface TimeDomainVisualizerProps {
   data: Uint8Array;
+  canvasRef?: any;
 }
 
-export function TimeDomainVisualizer({ data }: TimeDomainVisualizerProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+export function TimeDomainVisualizer({ data, canvasRef: externalCanvasRef }: TimeDomainVisualizerProps) {
+  const internalCanvasRef = useRef<HTMLCanvasElement>(null);
+  const canvasRef = externalCanvasRef || internalCanvasRef;
 
   useEffect(() => {
     const canvas = canvasRef.current;
