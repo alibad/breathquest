@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { TimeDomainTool } from '@/components/audio-tools/TimeDomainTool';
 import { FrequencyDomainTool } from '@/components/audio-tools/FrequencyDomainTool';
 import { AmplitudeEnvelopeTool } from '@/components/audio-tools/AmplitudeEnvelopeTool';
+import { FrequencyBandTool } from '@/components/audio-tools/FrequencyBandTool';
 import { AudioConfigurationPanel } from '@/components/audio-tools/AudioConfigurationPanel';
 import { AudioVideoRecorder } from '@/components/audio-tools/AudioVideoRecorder';
 
@@ -28,6 +29,7 @@ export default function AudioToolsPage() {
   const timeDomainCanvasRef = useRef<HTMLCanvasElement>(null);
   const frequencyDomainCanvasRef = useRef<HTMLCanvasElement>(null);
   const amplitudeEnvelopeCanvasRef = useRef<HTMLCanvasElement>(null);
+  const frequencyBandCanvasRef = useRef<HTMLCanvasElement>(null);
 
   const startAudioCapture = async () => {
     try {
@@ -199,7 +201,7 @@ export default function AudioToolsPage() {
       {isListening && (
         <AudioVideoRecorder 
           isListening={isListening}
-          canvasRefs={[timeDomainCanvasRef, amplitudeEnvelopeCanvasRef, frequencyDomainCanvasRef]}
+          canvasRefs={[timeDomainCanvasRef, amplitudeEnvelopeCanvasRef, frequencyDomainCanvasRef, frequencyBandCanvasRef]}
           audioStream={audioStreamRef.current || undefined}
         />
       )}
@@ -213,6 +215,7 @@ export default function AudioToolsPage() {
           <TimeDomainTool audioData={audioData} canvasRef={timeDomainCanvasRef} />
           <AmplitudeEnvelopeTool audioData={audioData} canvasRef={amplitudeEnvelopeCanvasRef} />
           <FrequencyDomainTool audioData={audioData} canvasRef={frequencyDomainCanvasRef} />
+          <FrequencyBandTool audioData={audioData} canvasRef={frequencyBandCanvasRef} />
         </div>
       )}
 

@@ -26,7 +26,7 @@ export function AudioVideoRecorder({ isListening, canvasRefs, audioStream }: Aud
       // Create a canvas to composite all visualizations
       const compositeCanvas = document.createElement('canvas');
       compositeCanvas.width = 1200;
-      compositeCanvas.height = 1100; // Increased height for 3 panels
+      compositeCanvas.height = 1400; // Increased height for 4 panels
       const ctx = compositeCanvas.getContext('2d');
       
       if (!ctx) return;
@@ -110,7 +110,7 @@ export function AudioVideoRecorder({ isListening, canvasRefs, audioStream }: Aud
         canvasRefs.forEach((canvasRef, index) => {
           const canvas = canvasRef.current;
           if (canvas) {
-            const yOffset = 100 + (index * 320); // Increased spacing for 3 panels
+            const yOffset = 100 + (index * 320); // Spacing for 4 panels
             
             // Add section label with proper colors and names
             let label = '';
@@ -128,6 +128,10 @@ export function AudioVideoRecorder({ isListening, canvasRefs, audioStream }: Aud
               case 2:
                 label = 'Frequency Domain Analysis';
                 color = '#4488ff';
+                break;
+              case 3:
+                label = 'Multi-Band Frequency Analysis';
+                color = '#8b5cf6';
                 break;
               default:
                 label = `Analysis ${index + 1}`;
