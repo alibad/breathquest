@@ -26,7 +26,7 @@ export function AudioVideoRecorder({ isListening, canvasRefs, audioStream }: Aud
       // Create a canvas to composite all visualizations
       const compositeCanvas = document.createElement('canvas');
       compositeCanvas.width = 1200;
-      compositeCanvas.height = 1400; // Increased height for 4 panels
+      compositeCanvas.height = 1400; // Height for 4 panels
       const ctx = compositeCanvas.getContext('2d');
       
       if (!ctx) return;

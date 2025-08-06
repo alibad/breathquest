@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { TimeDomainTool } from '@/components/audio-tools/TimeDomainTool';
 import { FrequencyDomainTool } from '@/components/audio-tools/FrequencyDomainTool';
 import { AmplitudeEnvelopeTool } from '@/components/audio-tools/AmplitudeEnvelopeTool';
 import { FrequencyBandTool } from '@/components/audio-tools/FrequencyBandTool';
+
 import { AudioConfigurationPanel } from '@/components/audio-tools/AudioConfigurationPanel';
 import { AudioVideoRecorder } from '@/components/audio-tools/AudioVideoRecorder';
 
@@ -30,6 +31,7 @@ export default function AudioToolsPage() {
   const frequencyDomainCanvasRef = useRef<HTMLCanvasElement>(null);
   const amplitudeEnvelopeCanvasRef = useRef<HTMLCanvasElement>(null);
   const frequencyBandCanvasRef = useRef<HTMLCanvasElement>(null);
+
 
   const startAudioCapture = async () => {
     try {
@@ -93,7 +95,7 @@ export default function AudioToolsPage() {
     });
   };
 
-  const processAudio = () => {
+  const processAudio = useCallback(() => {
     if (!analyserRef.current || !audioContextRef.current) return;
     
     const bufferLength = analyserRef.current.fftSize;
@@ -116,7 +118,7 @@ export default function AudioToolsPage() {
     if (isListeningRef.current) {
       animationRef.current = requestAnimationFrame(processAudio);
     }
-  };
+  }, []); // Empty dependency array since we use refs
 
 
 

@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { FrequencyBandVisualizer } from './FrequencyBandVisualizer';
 
 interface FrequencyBandToolProps {
@@ -57,7 +57,7 @@ export function FrequencyBandTool({ audioData, canvasRef }: FrequencyBandToolPro
 
   const bands = PREDEFINED_BAND_SETS[bandSet];
 
-  const calculateBandEnergies = (frequencyData: Uint8Array, sampleRate: number) => {
+  const calculateBandEnergies = useCallback((frequencyData: Uint8Array, sampleRate: number) => {
     const nyquist = sampleRate / 2;
     const binCount = frequencyData.length;
     const energies: number[] = [];
@@ -82,7 +82,7 @@ export function FrequencyBandTool({ audioData, canvasRef }: FrequencyBandToolPro
     });
 
     return { energies, totalEnergy: totalEnergySum };
-  };
+  }, [bands]);
 
   useEffect(() => {
     if (audioData.frequencyDomain.length > 0) {
