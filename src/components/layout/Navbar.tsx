@@ -117,6 +117,11 @@ const Navbar = () => {
             </Link>
           </li>
           <li>
+            <Link href="/audio-tools">
+              Audio Tools
+            </Link>
+          </li>
+          <li>
             {isHomePage ? (
               <a
                 href="#story"
