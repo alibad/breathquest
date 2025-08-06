@@ -26,7 +26,7 @@ export function AudioVideoRecorder({ isListening, canvasRefs, audioStream }: Aud
       // Create a canvas to composite all visualizations
       const compositeCanvas = document.createElement('canvas');
       compositeCanvas.width = 1200;
-      compositeCanvas.height = 800;
+      compositeCanvas.height = 1100; // Increased height for 3 panels
       const ctx = compositeCanvas.getContext('2d');
       
       if (!ctx) return;
@@ -110,17 +110,38 @@ export function AudioVideoRecorder({ isListening, canvasRefs, audioStream }: Aud
         canvasRefs.forEach((canvasRef, index) => {
           const canvas = canvasRef.current;
           if (canvas) {
-            const yOffset = 100 + (index * 300);
+            const yOffset = 100 + (index * 320); // Increased spacing for 3 panels
             
-            // Add section label
-            ctx.fillStyle = index === 0 ? '#00ff88' : '#4488ff';
+            // Add section label with proper colors and names
+            let label = '';
+            let color = '';
+            
+            switch (index) {
+              case 0:
+                label = 'Time Domain Analysis';
+                color = '#00ff88';
+                break;
+              case 1:
+                label = 'Amplitude Envelope Analysis';
+                color = '#ff8844';
+                break;
+              case 2:
+                label = 'Frequency Domain Analysis';
+                color = '#4488ff';
+                break;
+              default:
+                label = `Analysis ${index + 1}`;
+                color = '#ffffff';
+            }
+            
+            ctx.fillStyle = color;
             ctx.font = 'bold 18px Arial';
             ctx.textAlign = 'left';
-            const label = index === 0 ? 'Time Domain Analysis' : 'Frequency Domain Analysis';
             ctx.fillText(label, 50, yOffset - 10);
             
-            // Draw the canvas
-            ctx.drawImage(canvas, 50, yOffset, compositeCanvas.width - 100, 250);
+            // Draw the canvas with appropriate sizing
+            const canvasHeight = Math.min(260, canvas.height); // Limit height
+            ctx.drawImage(canvas, 50, yOffset, compositeCanvas.width - 100, canvasHeight);
           }
         });
 
