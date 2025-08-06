@@ -70,9 +70,12 @@ export function FrequencyDomainVisualizer({
       } else if (frequency < 4000) {
         // Upper midrange: Yellow-green
         color = `hsl(80, 85%, ${55 + (magnitude / 255) * 25}%)`;
-      } else {
-        // Treble: Orange-red
+      } else if (frequency < 6000) {
+        // High frequencies: Orange-red (breath-relevant)
         color = `hsl(20, 90%, ${60 + (magnitude / 255) * 25}%)`;
+      } else {
+        // Very high frequencies: Muted gray (less relevant for breath analysis)
+        color = `hsl(0, 20%, ${30 + (magnitude / 255) * 20}%)`;
       }
       
       ctx.fillStyle = color;
@@ -102,12 +105,26 @@ export function FrequencyDomainVisualizer({
       }
     }
 
-    // Draw frequency labels
+    // Draw frequency labels at the top
     ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
     ctx.font = '11px monospace';
     
-    // Label key frequencies within our display range
+    // Label key frequencies within our display range at the top
     const labelFreqs = [100, 500, 1000, 2000, 4000, 6000, 8000];
+    labelFreqs.forEach(freq => {
+      if (freq <= maxDisplayFreq) {
+        const bin = (freq * data.length) / nyquistFreq;
+        if (bin < maxDisplayBin) {
+          const x = bin * barWidth;
+          const label = freq >= 1000 ? `${freq/1000}kHz` : `${freq}Hz`;
+          ctx.fillText(label, x, 15);
+        }
+      }
+    });
+
+    // Also draw frequency labels at the bottom for reference
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+    ctx.font = '10px monospace';
     labelFreqs.forEach(freq => {
       if (freq <= maxDisplayFreq) {
         const bin = (freq * data.length) / nyquistFreq;
