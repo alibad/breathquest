@@ -161,7 +161,7 @@ const PlayGameComponent = () => {
       
     } catch (error) {
       console.error('❌ Microphone error:', error);
-      alert(`Microphone error: ${error.message}`);
+      alert(`Microphone error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
