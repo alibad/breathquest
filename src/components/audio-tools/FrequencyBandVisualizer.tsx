@@ -22,16 +22,16 @@ export function FrequencyBandVisualizer({ bands, bandEnergies, canvasRef }: Freq
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Set canvas size
+    // Set canvas size - increased height for better label space
     canvas.width = canvas.offsetWidth * window.devicePixelRatio;
-    canvas.height = 300 * window.devicePixelRatio;
+    canvas.height = 350 * window.devicePixelRatio;
     canvas.style.width = canvas.offsetWidth + 'px';
-    canvas.style.height = '300px';
+    canvas.style.height = '350px';
     
     ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
 
     const width = canvas.offsetWidth;
-    const height = 300;
+    const height = 350;
 
     // Clear canvas
     ctx.fillStyle = '#000000';
@@ -48,7 +48,7 @@ export function FrequencyBandVisualizer({ bands, bandEnergies, canvasRef }: Freq
 
     // Calculate bar dimensions
     const barWidth = (width - 40) / bands.length; // 20px margin on each side
-    const maxBarHeight = height - 80; // Leave space for labels
+    const maxBarHeight = height - 120; // More space for labels (top and bottom)
     const maxEnergy = Math.max(...bandEnergies, 0.1); // Prevent division by zero
 
     // Draw frequency bands
@@ -95,12 +95,12 @@ export function FrequencyBandVisualizer({ bands, bandEnergies, canvasRef }: Freq
       );
       ctx.fillText('Hz', x + barWidth/2, height - 25);
 
-      // Draw band name at top
+      // Draw band name at top with better positioning
       ctx.fillStyle = band.color;
-      ctx.font = 'bold 11px Arial';
+      ctx.font = 'bold 12px Arial';
       ctx.textAlign = 'center';
       ctx.save();
-      ctx.translate(x + barWidth/2, 15);
+      ctx.translate(x + barWidth/2, 25); // Lower position for more room
       ctx.rotate(-Math.PI/6); // Slight angle for readability
       ctx.fillText(band.name, 0, 0);
       ctx.restore();
@@ -137,13 +137,7 @@ export function FrequencyBandVisualizer({ bands, bandEnergies, canvasRef }: Freq
       ctx.fillText(`${percentage.toFixed(0)}%`, 15, yPos + 3);
     }
 
-    // Draw title
-    ctx.fillStyle = '#F3F4F6';
-    ctx.font = 'bold 14px Arial';
-    ctx.textAlign = 'left';
-    ctx.fillText('Energy Distribution Across Frequency Bands', 20, 30);
-
-    // Draw max energy indicator
+    // Draw max energy indicator (moved to top-left since title is removed)
     ctx.fillStyle = '#6B7280';
     ctx.font = '10px Arial';
     ctx.textAlign = 'right';
@@ -157,7 +151,7 @@ export function FrequencyBandVisualizer({ bands, bandEnergies, canvasRef }: Freq
         ref={canvasRef}
         style={{
           width: '100%',
-          height: '300px',
+          height: '350px',
           border: '1px solid rgba(255, 255, 255, 0.1)',
           borderRadius: '8px',
           background: 'linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%)'

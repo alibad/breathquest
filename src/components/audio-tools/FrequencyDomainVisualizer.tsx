@@ -145,7 +145,7 @@ export function FrequencyDomainVisualizer({
       ref={canvasRef}
       style={{
         width: '100%',
-        height: '200px',
+        height: '350px',
         background: 'rgba(0, 0, 0, 0.8)',
         borderRadius: '8px',
         border: '1px solid rgba(68, 136, 255, 0.3)'
