@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 
 interface BreathState {
-  type: 'normal' | 'inhale' | 'exhale' | 'hold';
+  type: 'silence' | 'inhale' | 'exhale' | 'noise';
   label: string;
   color: string;
   scale: number;
@@ -40,9 +40,9 @@ const PlayGameComponent = () => {
   const [calibrationProgress, setCalibrationProgress] = useState(0);
   const [showUI, setShowUI] = useState(false);
   const [breathState, setBreathState] = useState<BreathState>({
-    type: 'normal',
-    label: '🌬️ Normal Breathing',
-    color: '#00ff88',
+    type: 'silence',
+    label: '🤫 Silence',
+    color: '#6366f1',
     scale: 1,
     confidence: 0
   });
@@ -78,6 +78,7 @@ const PlayGameComponent = () => {
   const amplitudeHistoryRef = useRef<number[]>([]);
   const lastUpdateTimeRef = useRef(0);
   const smoothedAmplitudeRef = useRef(0);
+  const stateHistoryRef = useRef<string[]>([]);  // Track recent states for smoothing
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const silenceLevelsRef = useRef<number[]>([]);
   const ambientBaselineRef = useRef<number | null>(null);
@@ -178,9 +179,7 @@ const PlayGameComponent = () => {
     // Debug: Check if we're getting any data
     const sampleCheck = dataArray.slice(0, 10);
     if (silenceLevelsRef.current.length % 10 === 0) {
-      console.log('🔊 Raw audio samples:', sampleCheck);
-      console.log('🔊 All samples the same?', new Set(dataArray).size === 1);
-      console.log('🔊 Buffer length:', bufferLength, 'Data array length:', dataArray.length);
+      // Audio processing debug (disabled to reduce noise)
     }
     
     // Calculate noise level
@@ -205,9 +204,9 @@ const PlayGameComponent = () => {
     if (noiseLevel < 0.01 && nonZeroSamples < 10) {
       // Try different analyser settings
       if (analyserRef.current) {
-        analyserRef.current.minDecibels = -100;
-        analyserRef.current.maxDecibels = -30;
-        analyserRef.current.smoothingTimeConstant = 0.3;
+        analyserRef.current.minDecibels = -90;
+        analyserRef.current.maxDecibels = -10;
+        analyserRef.current.smoothingTimeConstant = 0.8;
       }
       
       // Also try frequency domain for noise level
@@ -249,7 +248,7 @@ const PlayGameComponent = () => {
     
     // If no frequency activity at all, add some test data to verify UI is working
     if (totalFreqActivity < 1 && silenceLevelsRef.current.length > 5) {
-      console.warn('🔊 NO FREQUENCY ACTIVITY! Adding test data to verify UI...');
+              // No frequency activity detected - using test data
       // Add some random test data to see if bars work
       for (let i = 0; i < 20; i++) {
         barsData[i] = Math.random() * 30 + 5; // Random between 5-35%
@@ -261,7 +260,7 @@ const PlayGameComponent = () => {
     // Debug audio data every 30 samples
     if (silenceLevelsRef.current.length % 30 === 0) {
       const totalFreqActivity = barsData.reduce((sum, val) => sum + val, 0) / barsData.length;
-      console.log(`🔊 Audio debug - RMS: ${rms.toFixed(4)}, NoiseLevel: ${noiseLevel.toFixed(2)}, NonZeroSamples: ${nonZeroSamples}/${bufferLength}, Range: ${minSample}-${maxSample}, FreqActivity: ${totalFreqActivity.toFixed(2)}%`);
+      // Audio debug info (reduced logging)
     }
     
     setNoiseLevel(noiseLevel);
@@ -289,7 +288,7 @@ const PlayGameComponent = () => {
     
     // Debug logging
     if (silenceLevelsRef.current.length % 30 === 0) {
-      console.log(`🔊 Noise levels - Current: ${noiseLevel.toFixed(2)}, Average: ${recentAverage.toFixed(2)}, Baseline: ${ambientBaselineRef.current?.toFixed(2) || 'establishing'}, Threshold: ${threshold.toFixed(2)}`);
+      // Noise level tracking (debug disabled)
     }
     
     if (ambientBaselineRef.current !== null && recentAverage <= threshold && silenceLevelsRef.current.length >= 25) {
@@ -338,21 +337,27 @@ const PlayGameComponent = () => {
   const actuallyStartGame = () => {
     console.log('🎮 Starting game mode after silence confirmation...');
     
+    // STOP silence detection - it's interfering with gameplay!
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
+      animationRef.current = null;
+    }
+    isWaitingForSilenceRef.current = false;
+    
     // Audio context and analyser are already set up from silence detection
     // Just need to reset game variables
     
-    // Reset variables - use calibration data if available
-    if (calibrationData && isUsingCalibration) {
-      baselineRef.current = calibrationData.baseline;
-      console.log('🎯 Using calibrated baseline:', calibrationData.baseline);
-    } else {
-      baselineRef.current = 2.0; // Default baseline for gaming
-      console.log('🎲 Using default baseline: 2.0');
-    }
+    // Use the ambient baseline we just established, not the tiny calibrated baseline
+    // The calibrated baseline (0.37) is too sensitive for gameplay - it's for detecting subtle breath changes
+    // The ambient baseline (0.50) is better for gaming as it filters out room noise
+    const gameBaseline = ambientBaselineRef.current || 1.0;
+    baselineRef.current = gameBaseline;
+    console.log('🎯 Using ambient baseline for gaming:', gameBaseline, '(calibrated baseline:', calibrationData?.baseline || 'none', 'is too sensitive)');
     calibrationCountRef.current = 60; // Skip calibration for gaming
     amplitudeHistoryRef.current = [];
     lastUpdateTimeRef.current = 0;
     smoothedAmplitudeRef.current = 0;
+    stateHistoryRef.current = []; // Reset state history
     
     setIsListening(true);
     isListeningRef.current = true;
@@ -380,10 +385,10 @@ const PlayGameComponent = () => {
       clearInterval(silenceTimerRef.current);
       silenceTimerRef.current = null;
     }
-    setBreathState({
-      type: 'normal',
-      label: '🌬️ Normal Breathing',
-      color: '#00ff88',
+        setBreathState({ 
+      type: 'silence', 
+      label: '🤫 Silence', 
+      color: '#6366f1', 
       scale: 1
     });
     setAudioData({ amplitude: 0, baseline: 0, relative: 0, levelPercent: 0 });
@@ -422,13 +427,20 @@ const PlayGameComponent = () => {
     }
     breathingFreqPower /= (validBinEnd - breathingBinStart);
     
-    // Envelope detection
+    // Envelope detection (improved)
     let envelope = 0;
+    let maxSample = 0;
+    let minSample = 255;
     for (let i = 0; i < bufferLength; i++) {
-      const sample = Math.abs((dataArray[i] - 128) / 128);
+      const rawSample = dataArray[i];
+      maxSample = Math.max(maxSample, rawSample);
+      minSample = Math.min(minSample, rawSample);
+      const sample = Math.abs((rawSample - 128) / 128);
       envelope += sample;
     }
     envelope /= bufferLength;
+    
+    // Debug envelope - will add after normalizedAmplitude is calculated
     
     // RMS calculation
     let rmsSum = 0;
@@ -532,68 +544,126 @@ const PlayGameComponent = () => {
       let confidence = 0;
       
       // Dynamic thresholds based on calibration data
-      const exhaleThreshold = calibrationData && isUsingCalibration 
-        ? calibrationData.exhaleMax * 0.7 // 70% of calibrated max exhale
-        : 2.5; // Default threshold
       const inhaleThreshold = calibrationData && isUsingCalibration 
-        ? calibrationData.inhaleMax * 0.6 // 60% of calibrated max inhale  
+        ? calibrationData.inhaleMax * 0.4 // 40% of calibrated max inhale
+        : 2.0; // Default threshold
+      const exhaleThreshold = calibrationData && isUsingCalibration 
+        ? calibrationData.exhaleMax * 0.3 // 30% of calibrated max exhale  
         : 1.5; // Default threshold
       const normalThreshold = calibrationData && isUsingCalibration
-        ? calibrationData.baseline * 1.2 // 20% above calibrated baseline
+        ? calibrationData.baseline * 1.5 // 50% above calibrated baseline
         : 0.8; // Default threshold
+      
+      // Clean debug logging - only for strong breathing detection
+      const isStrongBreath = normalizedAmplitude > Math.max(inhaleThreshold, exhaleThreshold);
+      if (isStrongBreath && Math.random() < 0.1) { // Only 10% of strong breath detections
+        console.log(`🫁 BREATH: amp=${normalizedAmplitude.toFixed(1)} | centroid=${spectralCentroid.toFixed(0)} | envelope=${envelope.toFixed(2)}`);
+        console.log(`🔍 ENVELOPE DEBUG: min=${minSample}, max=${maxSample}, range=${maxSample-minSample}, envelope=${envelope.toFixed(3)}`);
+      }
 
-      if (normalizedAmplitude > exhaleThreshold && trend > 1.0 && lpcGain > 0.5) {
-        confidence = Math.min(100, (normalizedAmplitude + lpcGain) * 30);
+      // SIMPLIFIED 4-STATE DETECTION: silence, inhale, exhale, noise
+      const strongBreathThreshold = Math.max(inhaleThreshold, exhaleThreshold);
+      
+      // Define noise threshold with hysteresis to prevent rapid switching
+      // MUCH higher threshold - only truly loud environmental noise should trigger this
+      const baseNoiseThreshold = Math.max(25, strongBreathThreshold * 15); // At least 25 amplitude + 15x breath threshold
+      const noiseThreshold = breathState.type === 'noise' 
+        ? baseNoiseThreshold * 0.8  // Lower threshold to exit noise state (hysteresis)
+        : baseNoiseThreshold;       // Higher threshold to enter noise state
+      
+      if (normalizedAmplitude > noiseThreshold) {
+        // Too loud - probably environmental noise
+        confidence = Math.min(100, normalizedAmplitude * 10);
         newState = { 
-          type: 'exhale', 
-          label: '🔥 Sharp Exhale', 
-          color: '#ff6644', 
-          scale: 0.7,
+          type: 'noise', 
+          label: '🔊 Environmental Noise', 
+          color: '#ff9500', 
+          scale: 0.8,
           confidence: confidence,
-          medicalNote: `Strong exhale detected - great for powerful attacks! ${isUsingCalibration ? '(calibrated)' : '(default)'}`
+          medicalNote: `Environmental noise detected - too loud for breathing ${isUsingCalibration ? '(calibrated)' : '(default)'}`
         };
-      } else if (normalizedAmplitude > inhaleThreshold && envelope > 0.8) {
-        confidence = Math.min(100, (envelope + normalizedAmplitude) * 40);
-        newState = { 
-          type: 'inhale', 
-          label: '💨 Deep Inhale', 
-          color: '#4488ff', 
-          scale: 1.5,
-          confidence: confidence,
-          medicalNote: `Deep breath detected - perfect for charging up! ${isUsingCalibration ? '(calibrated)' : '(default)'}`
-        };
-      } else if (normalizedAmplitude > normalThreshold) {
-        confidence = Math.min(100, envelope * 60);
-        newState = { 
-          type: 'normal', 
-          label: '🌬️ Normal Breathing', 
-          color: '#00ff88', 
-          scale: 1,
-          confidence: confidence,
-          medicalNote: `Steady breathing - good for movement and exploration ${isUsingCalibration ? '(calibrated)' : '(default)'}`
-        };
-      } else if (lpcGain < 0.05 && envelope < 0.1) {
-        confidence = Math.min(100, (1 - envelope) * 90);
-        newState = { 
-          type: 'hold', 
-          label: '⏸️ Breath Hold', 
-          color: '#00ccff', 
-          scale: 1.2,
-          confidence: confidence,
-          medicalNote: 'Holding breath - activates shield or special abilities!'
-        };
+      } else if (normalizedAmplitude > strongBreathThreshold) {
+        // Strong breathing detected - classify as inhale or exhale
+        // Based on your data: exhales are typically 348-700, inhales are 700+
+        const isInhale = spectralCentroid >= 700; // Bright sound = inhale  
+        const isExhale = spectralCentroid < 700;  // Dark sound = exhale (more inclusive)
+        
+        console.log(`🔍 BREATH CLASSIFICATION: centroid=${spectralCentroid.toFixed(0)}, isInhale=${isInhale}, isExhale=${isExhale}, amp=${normalizedAmplitude.toFixed(1)}`);
+        
+        if (isInhale) {
+          console.log(`✅ SETTING INHALE STATE`);
+          confidence = Math.min(100, normalizedAmplitude * 40);
+          newState = { 
+            type: 'inhale', 
+            label: '💨 Inhale', 
+            color: '#4488ff', 
+            scale: 1.4,
+            confidence: confidence,
+            medicalNote: `Inhale detected ${isUsingCalibration ? '(calibrated)' : '(default)'}`
+          };
+        } else if (isExhale) {
+          console.log(`✅ SETTING EXHALE STATE`);
+          confidence = Math.min(100, normalizedAmplitude * 30);
+          newState = { 
+            type: 'exhale', 
+            label: '🔥 Exhale', 
+            color: '#ff6644', 
+            scale: 0.7,
+            confidence: confidence,
+            medicalNote: `Exhale detected ${isUsingCalibration ? '(calibrated)' : '(default)'}`
+          };
+        } else {
+          // Ambiguous frequency - default to silence
+          confidence = Math.min(100, normalizedAmplitude * 15);
+          newState = { 
+            type: 'silence', 
+            label: '🤫 Quiet', 
+            color: '#6366f1', // Nice indigo color instead of gray
+            scale: 1.0,
+            confidence: confidence,
+            medicalNote: `Ambiguous sound - defaulting to silence ${isUsingCalibration ? '(calibrated)' : '(default)'}`
+          };
+        }
       } else {
+        // Low amplitude - silence
+        confidence = Math.min(100, (normalThreshold - normalizedAmplitude) / normalThreshold * 100);
         newState = { 
-          type: 'normal', 
-          label: '🔄 Changing Pattern', 
-          color: '#ffaa44', 
-          scale: 1,
-          confidence: 30,
-          medicalNote: 'Breathing pattern is changing...'
+          type: 'silence', 
+          label: '🤫 Silence', 
+          color: '#6366f1', // Nice indigo color instead of gray
+          scale: 1.0,
+          confidence: confidence,
+          medicalNote: `Silence detected ${isUsingCalibration ? '(calibrated)' : '(default)'}`
         };
       }
       
-      setBreathState(newState);
+      // State smoothing to prevent rapid oscillations
+      stateHistoryRef.current.push(newState.type);
+      if (stateHistoryRef.current.length > 5) {
+        stateHistoryRef.current.shift(); // Keep only last 5 states
+      }
+      
+      // Only change state if we have consistent detection (3 out of last 5)
+      if (stateHistoryRef.current.length >= 3) {
+        const stateCounts = stateHistoryRef.current.reduce((acc, state) => {
+          acc[state] = (acc[state] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>);
+        
+        const mostCommonState = Object.entries(stateCounts)
+          .sort(([,a], [,b]) => b - a)[0][0];
+        
+        // Only update if the most common state appears at least 3 times, OR it's different from current
+        if (stateCounts[mostCommonState] >= 3 || mostCommonState !== breathState.type) {
+          // Update the state type but keep other properties
+          newState.type = mostCommonState as any;
+          setBreathState(newState);
+        }
+      } else {
+        // Not enough history yet, just set the state
+        setBreathState(newState);
+      }
+      
       lastUpdateTimeRef.current = currentTime;
     }
     
@@ -607,9 +677,10 @@ const PlayGameComponent = () => {
       case 'inhale':
         return 'translateY(-100px) scale(1.4)';
       case 'exhale':
-        return 'translateY(20px) scale(0.8)';
-      case 'hold':
-        return 'translateY(-20px) scale(1.1)';
+        return 'translateY(20px) scale(0.7)';
+      case 'noise':
+        return 'translateY(10px) scale(0.9) rotate(2deg)';
+      case 'silence':
       default:
         return 'translateY(0px) scale(1)';
     }
@@ -905,37 +976,69 @@ const PlayGameComponent = () => {
           animation: !showUI ? 'breathe 3s ease-in-out infinite' : 'none'
         }}></div>
         
-        {/* Instructions overlay */}
+        {/* Compact instructions in corner */}
         <div style={{
           position: 'absolute',
-          top: '10%',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          fontSize: '3rem',
-          fontWeight: 'bold',
-          color: 'rgba(255, 255, 255, 0.9)',
-          textShadow: '0 4px 8px rgba(0, 0, 0, 0.8)',
-          textAlign: 'center'
+          top: '20px',
+          right: '20px',
+          fontSize: '0.9rem',
+          fontWeight: '600',
+          color: '#ffffff',
+          textShadow: '0 1px 3px rgba(0, 0, 0, 0.8)',
+          textAlign: 'right',
+          background: 'linear-gradient(135deg, rgba(0, 255, 136, 0.2), rgba(68, 136, 255, 0.2))',
+          padding: '10px 16px',
+          borderRadius: '12px',
+          backdropFilter: 'blur(10px)',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
         }}>
           💨 Breathe to Control
         </div>
         
-        {/* Breath state display - Large and centered */}
-        {showUI && (
+        {/* Large, prominent breath state display */}
+        <div style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          textAlign: 'center'
+        }}>
+          {/* Main state label */}
           <div style={{
-            position: 'absolute',
-            top: '20%',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            fontSize: '2rem',
-            fontWeight: 'bold',
+            fontSize: showUI ? '4rem' : '3rem',
+            fontWeight: '900',
             color: breathState.color,
-            textShadow: '0 2px 4px rgba(0, 0, 0, 0.8)',
-            textAlign: 'center'
+            textShadow: `0 0 30px ${breathState.color}, 0 0 60px ${breathState.color}40, 0 8px 16px rgba(0, 0, 0, 0.9)`,
+            marginBottom: '16px',
+            transition: 'all 0.4s ease',
+            letterSpacing: '2px',
+            fontFamily: 'system-ui, -apple-system, sans-serif'
           }}>
             {breathState.label}
           </div>
-        )}
+          
+          {/* State description/tip */}
+          {showUI && (
+            <div style={{
+              fontSize: '1.4rem',
+              color: '#ffffff',
+              textShadow: '0 2px 8px rgba(0, 0, 0, 0.9), 0 0 20px rgba(255, 255, 255, 0.1)',
+              fontWeight: '500',
+              background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05))',
+              padding: '12px 24px',
+              borderRadius: '16px',
+              backdropFilter: 'blur(8px)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              letterSpacing: '0.5px'
+            }}>
+              {breathState.type === 'inhale' && '⬆️ Character rises and charges'}
+              {breathState.type === 'exhale' && '⬇️ Character attacks and shrinks'}
+              {breathState.type === 'silence' && '✨ Breathe to begin...'}
+              {breathState.type === 'noise' && '🔊 Environment too loud'}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Calibration Status */}

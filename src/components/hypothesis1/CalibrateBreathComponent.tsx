@@ -23,6 +23,23 @@ interface CalibrationData {
   };
 }
 
+// State machine types
+type CalibrationStep = 'idle' | 'setup' | 'countdown' | 'exercise' | 'complete';
+
+interface CalibrationState {
+  step: CalibrationStep;
+  currentPhase: BoxBreathingPhase | null;
+  timers: {
+    preparation: number;
+    exercise: number;
+    phase: number;
+  };
+  progress: {
+    calibration: number;
+  };
+  isListening: boolean;
+}
+
 interface BoxBreathingPhase {
   phase: 'inhale' | 'hold1' | 'exhale' | 'hold2';
   duration: number;
@@ -36,7 +53,7 @@ interface CalibrateBreathComponentProps {
 }
 
 const CalibrateBreathComponent = ({ onSwitchToPlay }: CalibrateBreathComponentProps) => {
-  // State management
+  // State management (restored)
   const [isListening, setIsListening] = useState(false);
   const isListeningRef = useRef(false);
   const [isCalibrating, setIsCalibrating] = useState(false);
@@ -57,6 +74,7 @@ const CalibrateBreathComponent = ({ onSwitchToPlay }: CalibrateBreathComponentPr
   const [recordedLevels, setRecordedLevels] = useState<number[]>([]);
   const [savedCalibration, setSavedCalibration] = useState<CalibrationData | null>(null);
   const [frequencyBands, setFrequencyBands] = useState<number[]>(new Array(8).fill(0));
+  const isExerciseRunningRef = useRef(false);
 
   // Refs for audio processing
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -69,7 +87,8 @@ const CalibrateBreathComponent = ({ onSwitchToPlay }: CalibrateBreathComponentPr
   const calibrationCountRef = useRef(0);
   const phaseTimerRef = useRef<NodeJS.Timeout | null>(null);
   const exerciseTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const isExerciseRunningRef = useRef(false);
+  const currentPhaseRef = useRef<BoxBreathingPhase | null>(null);
+  const recordedLevelsRef = useRef<number[]>([]);
 
   // Box breathing phases (inspired by breathe.html)
   const boxBreathingPhases: BoxBreathingPhase[] = [
@@ -91,6 +110,8 @@ const CalibrateBreathComponent = ({ onSwitchToPlay }: CalibrateBreathComponentPr
       }
     }
   }, []);
+
+
 
   const startCalibration = async () => {
     if (isListeningRef.current) {
@@ -130,6 +151,7 @@ const CalibrateBreathComponent = ({ onSwitchToPlay }: CalibrateBreathComponentPr
       baselineRef.current = 0;
       calibrationCountRef.current = 0;
       setRecordedLevels([]);
+      recordedLevelsRef.current = [];
       
       setIsListening(true);
       isListeningRef.current = true;
@@ -169,11 +191,17 @@ const CalibrateBreathComponent = ({ onSwitchToPlay }: CalibrateBreathComponentPr
   };
 
   const startBoxBreathingExercise = () => {
+    // Prevent double execution
+    if (isExerciseRunningRef.current) {
+      console.log('⚠️ Exercise already running, ignoring duplicate call');
+      return;
+    }
+    
     console.log('🫁 Starting box breathing exercise...');
     setIsExerciseRunning(true);
     isExerciseRunningRef.current = true;
-    setExerciseTimeLeft(64); // 4 cycles of 16 seconds each
-    setRecordedLevels([]);
+    setExerciseTimeLeft(32); // 2 cycles of 16 seconds each
+    // DON'T clear recordedLevels here - data is already being recorded!
     
     // Start exercise timer
     const exerciseInterval = setInterval(() => {
@@ -204,6 +232,7 @@ const CalibrateBreathComponent = ({ onSwitchToPlay }: CalibrateBreathComponentPr
     
     const phase = boxBreathingPhases[phaseIndex];
     setCurrentPhase(phase);
+    currentPhaseRef.current = phase; // Update ref for immediate access
     setPhaseTimeLeft(phase.duration);
     
     console.log(`🫁 Starting phase: ${phase.phase} (${phase.duration}s)`);
@@ -230,10 +259,17 @@ const CalibrateBreathComponent = ({ onSwitchToPlay }: CalibrateBreathComponentPr
 
   const completeBoxBreathingExercise = () => {
     console.log('✅ Box breathing calibration complete!');
-    console.log('📊 Recorded levels count:', recordedLevels.length);
+    console.log('📊 Recorded levels count:', recordedLevelsRef.current.length);
     setIsExerciseRunning(false);
     isExerciseRunningRef.current = false;
     setCurrentPhase(null);
+    currentPhaseRef.current = null;
+    
+    // Stop the detectBreath animation loop immediately
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
+      animationRef.current = null;
+    }
     
     if (phaseTimerRef.current) {
       clearInterval(phaseTimerRef.current);
@@ -243,23 +279,23 @@ const CalibrateBreathComponent = ({ onSwitchToPlay }: CalibrateBreathComponentPr
     }
     
     // Calculate calibration data from recorded levels
-    console.log('🧮 Calculating calibration data, recordedLevels.length:', recordedLevels.length);
-    if (recordedLevels.length > 0) {
-      const sortedLevels = [...recordedLevels].sort((a, b) => a - b);
+    console.log('🧮 Calculating calibration data, recordedLevels.length:', recordedLevelsRef.current.length);
+    if (recordedLevelsRef.current.length > 0) {
+      const sortedLevels = [...recordedLevelsRef.current].sort((a, b) => a - b);
       const inhaleMax = sortedLevels[Math.floor(sortedLevels.length * 0.95)]; // 95th percentile
       const exhaleMax = sortedLevels[Math.floor(sortedLevels.length * 0.85)]; // 85th percentile
       const baseline = sortedLevels[Math.floor(sortedLevels.length * 0.1)]; // 10th percentile
-      const average = recordedLevels.reduce((sum, val) => sum + val, 0) / recordedLevels.length;
+      const average = recordedLevelsRef.current.reduce((sum, val) => sum + val, 0) / recordedLevelsRef.current.length;
       
       const calibrationData: CalibrationData = {
         inhaleMax,
         exhaleMax,
         baseline,
         timestamp: Date.now(),
-        dataPoints: recordedLevels.length,
+        dataPoints: recordedLevelsRef.current.length,
         audioLevels: {
-          min: Math.min(...recordedLevels),
-          max: Math.max(...recordedLevels),
+          min: Math.min(...recordedLevelsRef.current),
+          max: Math.max(...recordedLevelsRef.current),
           average
         }
       };
@@ -269,11 +305,12 @@ const CalibrateBreathComponent = ({ onSwitchToPlay }: CalibrateBreathComponentPr
       console.log('💾 Calibration data saved:', calibrationData);
       console.log('🎉 Setting isCalibrationComplete to true');
       setIsCalibrationComplete(true);
-    } else {
-      console.warn('⚠️ No recorded levels found, but showing completion screen anyway');
-      // Show completion screen even if no data (better UX)
-      setIsCalibrationComplete(true);
-    }
+          } else {
+        console.error('❌ CALIBRATION FAILED: No recorded levels found!');
+        // NO FALLBACK - Let it fail properly
+        setSavedCalibration(null);
+        setIsCalibrationComplete(true);
+      }
   };
 
   const stopCalibration = () => {
@@ -285,7 +322,14 @@ const CalibrateBreathComponent = ({ onSwitchToPlay }: CalibrateBreathComponentPr
     setIsPreparationCountdown(false);
     setIsCalibrationComplete(false);
     setCurrentPhase(null);
+    currentPhaseRef.current = null;
     setCalibrationProgress(0);
+    
+    // Stop the detectBreath animation loop
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
+      animationRef.current = null;
+    }
     setExerciseTimeLeft(0);
     setPhaseTimeLeft(0);
     setPreparationTimeLeft(0);
@@ -419,9 +463,22 @@ const CalibrateBreathComponent = ({ onSwitchToPlay }: CalibrateBreathComponentPr
       levelPercent: levelPercent
     });
     
-    // Record levels during the exercise for calibration
-    if (isExerciseRunning) {
+    // Record levels during the exercise for calibration - ONLY during inhale/exhale, NOT during hold
+    const currentPhaseValue = currentPhaseRef.current;
+    if (isExerciseRunningRef.current && currentPhaseValue && (currentPhaseValue.phase === 'inhale' || currentPhaseValue.phase === 'exhale')) {
+      // Update both state and ref
       setRecordedLevels(prev => [...prev, rawAmplitude]);
+      recordedLevelsRef.current.push(rawAmplitude);
+      
+      // Debug every 30 samples using ref for accurate count
+      if (recordedLevelsRef.current.length % 30 === 0) {
+        console.log(`🎤 Recording audio: ${recordedLevelsRef.current.length} samples, latest: ${rawAmplitude.toFixed(2)}, phase: ${currentPhaseValue.phase}`);
+      }
+    } else if (isExerciseRunningRef.current && currentPhaseValue && (currentPhaseValue.phase === 'hold1' || currentPhaseValue.phase === 'hold2')) {
+      // Debug: Should NOT be recording during hold phases (limit to every 60 frames)
+      if (Math.random() < 0.016) { // Only ~1/60 chance to log
+        console.log(`🤐 HOLD PHASE - NOT recording audio, phase: ${currentPhaseValue.phase}, power: ${rawAmplitude.toFixed(1)}`);
+      }
     }
     
     animationRef.current = requestAnimationFrame(detectBreath);
@@ -464,7 +521,7 @@ const CalibrateBreathComponent = ({ onSwitchToPlay }: CalibrateBreathComponentPr
           margin: '0 auto 2rem auto'
         }}>
           <p style={{ marginBottom: '2rem', color: '#888', fontSize: '0.9rem' }}>
-            We'll guide you through a 64-second box breathing exercise (4 cycles) 
+            We'll guide you through a 32-second box breathing exercise (2 cycles) 
             to learn your personal breathing patterns.
           </p>
 
@@ -1003,10 +1060,10 @@ const CalibrateBreathComponent = ({ onSwitchToPlay }: CalibrateBreathComponentPr
             color: '#888',
             marginBottom: '2rem'
           }}>
-            {savedCalibration 
-              ? "Your personal breathing profile has been saved and will be used to improve game accuracy."
-              : "Calibration completed! No breathing data was recorded during this session."
-            }
+                          {savedCalibration 
+                ? `Your personal breathing profile has been saved with ${savedCalibration.dataPoints} data points and will be used to improve game accuracy.`
+                : "❌ CALIBRATION FAILED: No breathing data was recorded during this session. Please try again."
+              }
           </div>
           
           {savedCalibration && (
