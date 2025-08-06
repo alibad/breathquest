@@ -1,10 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import Image from 'next/image';
+import Link from 'next/link';
 
 const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
+  const pathname = usePathname();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -23,15 +26,22 @@ const Navbar = () => {
     }
   };
 
+  const isHomePage = pathname === '/';
+
   return (
     <nav id="navbar" className={scrolled ? 'scrolled' : ''}>
       <div className="nav-container">
-        <div style={{ 
-          fontSize: '1.5rem', 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: '0.5rem' 
-        }}>
+        <Link 
+          href="/"
+          style={{ 
+            fontSize: '1.5rem', 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '0.5rem',
+            textDecoration: 'none',
+            color: 'inherit'
+          }}
+        >
           <Image 
             src="/logo.svg" 
             alt="Breath Quest Logo" 
@@ -39,62 +49,87 @@ const Navbar = () => {
             height={32}
           />
           Breath Quest
-        </div>
+        </Link>
         <ul className="nav-links">
           <li>
-            <a 
-              href="#why" 
-              onClick={(e) => {
-                e.preventDefault();
-                scrollToSection('why');
-              }}
-            >
-              Why
-            </a>
+            {isHomePage ? (
+              <a
+                href="#why"
+                onClick={(e) => {
+                  e.preventDefault();
+                  scrollToSection('why');
+                }}
+              >
+                Why
+              </a>
+            ) : (
+              <Link href="/#why">Why</Link>
+            )}
           </li>
           <li>
-            <a 
-              href="#timeline" 
-              onClick={(e) => {
-                e.preventDefault();
-                scrollToSection('timeline');
-              }}
-            >
-              Timeline
-            </a>
+            {isHomePage ? (
+              <a
+                href="#timeline"
+                onClick={(e) => {
+                  e.preventDefault();
+                  scrollToSection('timeline');
+                }}
+              >
+                Timeline
+              </a>
+            ) : (
+              <Link href="/#timeline">Timeline</Link>
+            )}
           </li>
           <li>
-            <a 
-              href="#tech" 
-              onClick={(e) => {
-                e.preventDefault();
-                scrollToSection('tech');
-              }}
-            >
-              Tech
-            </a>
+            {isHomePage ? (
+              <a
+                href="#tech"
+                onClick={(e) => {
+                  e.preventDefault();
+                  scrollToSection('tech');
+                }}
+              >
+                Tech
+              </a>
+            ) : (
+              <Link href="/#tech">Tech</Link>
+            )}
           </li>
           <li>
-            <a 
-              href="#demo" 
-              onClick={(e) => {
-                e.preventDefault();
-                scrollToSection('demo');
-              }}
-            >
+            {isHomePage ? (
+              <a
+                href="#hypotheses"
+                onClick={(e) => {
+                  e.preventDefault();
+                  scrollToSection('hypotheses');
+                }}
+              >
+                Hypotheses
+              </a>
+            ) : (
+              <Link href="/#hypotheses">Hypotheses</Link>
+            )}
+          </li>
+          <li>
+            <Link href="/hypothesis-1">
               Demo
-            </a>
+            </Link>
           </li>
           <li>
-            <a 
-              href="#story" 
-              onClick={(e) => {
-                e.preventDefault();
-                scrollToSection('story');
-              }}
-            >
-              Story
-            </a>
+            {isHomePage ? (
+              <a
+                href="#story"
+                onClick={(e) => {
+                  e.preventDefault();
+                  scrollToSection('story');
+                }}
+              >
+                Story
+              </a>
+            ) : (
+              <Link href="/#story">Story</Link>
+            )}
           </li>
         </ul>
       </div>

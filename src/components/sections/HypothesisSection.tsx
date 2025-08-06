@@ -8,11 +8,12 @@ interface HypothesisStatus {
   id: number;
   title: string;
   description: string;
-  status: 'completed' | 'in-progress' | 'pending';
+  status: 'completed' | 'in-progress' | 'pending' | 'cancelled';
   phase?: string;
   accuracy?: string;
   findings?: string[];
   nextSteps?: string[];
+  demoLink?: string;
 }
 
 const hypothesesData: HypothesisStatus[] = [
@@ -37,7 +38,8 @@ const hypothesesData: HypothesisStatus[] = [
       'Measure user satisfaction with personalized profiles',
       'Test profile persistence across browser sessions',
       'Expand to hypothesis 2: Validate breath gaming is fun and engaging'
-    ]
+    ],
+    demoLink: '/hypothesis-1'
   },
   {
     id: 2,
@@ -56,13 +58,20 @@ const hypothesesData: HypothesisStatus[] = [
     id: 3,
     title: "Heart rate and respiratory sensors provide complementary data that enables adaptive gameplay mechanics beyond microphone detection",
     description: "Exploring multi-sensor integration for enhanced breath gaming",
-    status: 'pending',
+    status: 'cancelled',
+    phase: 'Research & Cost Analysis Complete',
+    findings: [
+      '❌ Hardware costs too high: $125+ for educational-grade respiratory belts',
+      '❌ Setup complexity: Bluetooth pairing, physical hardware, calibration',
+      '❌ Consumer unfriendly: Professional lab equipment, not gaming accessories',
+      '❌ Best option found: Vernier Go Direct® Respiration Belt ($125)',
+      '✅ Microphone-only approach validated as optimal path forward'
+    ],
     nextSteps: [
-      'Wait for Hypothesis 1 & 2 completion first',
-      'Research wearable sensor integration options (smartwatch, fitness bands)',
-      'Design complementary data fusion algorithms',
-      'Prototype multi-sensor breath gaming experiences',
-      'Compare microphone-only vs multi-sensor accuracy'
+      '✅ Decision made: Focus on microphone-only detection',
+      'Invest in advanced audio algorithms instead of hardware',
+      'Explore breath pattern recognition improvements',
+      'Consider revisiting sensors only if consumer wearables emerge'
     ]
   },
   {
@@ -115,6 +124,7 @@ const HypothesisSection = () => {
       case 'completed': return '#00ff88';
       case 'in-progress': return '#ffaa44';
       case 'pending': return '#888888';
+      case 'cancelled': return '#ff6666';
       default: return '#888888';
     }
   };
@@ -124,6 +134,7 @@ const HypothesisSection = () => {
       case 'completed': return '✅';
       case 'in-progress': return '🚧';
       case 'pending': return '⏳';
+      case 'cancelled': return '❌';
       default: return '⏳';
     }
   };
@@ -237,6 +248,34 @@ const HypothesisSection = () => {
                         </li>
                       ))}
                     </ul>
+                  </div>
+                )}
+
+                {hypothesis.demoLink && (
+                  <div style={{ marginTop: '1rem', textAlign: 'center' }}>
+                    <a
+                      href={hypothesis.demoLink}
+                      style={{
+                        display: 'inline-block',
+                        padding: '0.75rem 1.5rem',
+                        background: 'linear-gradient(45deg, #00ff88, #4488ff)',
+                        color: 'white',
+                        textDecoration: 'none',
+                        borderRadius: '8px',
+                        fontWeight: 'bold',
+                        fontSize: '0.9rem',
+                        boxShadow: '0 4px 12px rgba(0, 255, 136, 0.3)',
+                        transition: 'transform 0.2s ease'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'translateY(-1px)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'translateY(0)';
+                      }}
+                    >
+                      🧪 Try Interactive Demo
+                    </a>
                   </div>
                 )}
               </div>

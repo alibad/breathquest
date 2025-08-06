@@ -91,9 +91,9 @@ export const techCards = [
     description: 'Breath data controls game mechanics through smooth input mapping. Breathing becomes a natural game controller with customizable sensitivity and response curves.'
   },
   {
-    emoji: '📱',
-    title: 'Sensor Fusion',
-    description: 'Heart rate monitors and respiratory sensors provide additional physiological data for adaptive difficulty, stress detection, and enhanced gameplay mechanics.'
+    emoji: '🎯',
+    title: 'Advanced Audio Processing',
+    description: 'Sophisticated breath pattern recognition using multi-feature fusion, personal calibration, and adaptive algorithms for precise gaming control without additional hardware.'
   },
   {
     emoji: '🌐',
