@@ -6,9 +6,17 @@ interface FrequencyDomainVisualizerProps {
   data: Uint8Array;
   sampleRate: number;
   bufferSize: number;
+  showSpectralCentroid?: boolean;
+  spectralCentroid?: number;
 }
 
-export function FrequencyDomainVisualizer({ data, sampleRate, bufferSize }: FrequencyDomainVisualizerProps) {
+export function FrequencyDomainVisualizer({ 
+  data, 
+  sampleRate, 
+  bufferSize, 
+  showSpectralCentroid = false, 
+  spectralCentroid = 0 
+}: FrequencyDomainVisualizerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -29,37 +37,88 @@ export function FrequencyDomainVisualizer({ data, sampleRate, bufferSize }: Freq
 
     if (data.length === 0) return;
 
+    // Calculate Nyquist frequency (max displayable frequency)
+    const nyquistFreq = sampleRate / 2;
+    
+    // Only display up to a reasonable frequency range (e.g., 8kHz for breath analysis)
+    const maxDisplayFreq = Math.min(8000, nyquistFreq);
+    const maxDisplayBin = Math.floor((maxDisplayFreq * data.length) / nyquistFreq);
+    
     // Draw frequency bars
-    const barWidth = canvas.offsetWidth / data.length;
-    const maxHeight = canvas.offsetHeight;
+    const barWidth = canvas.offsetWidth / maxDisplayBin;
+    const maxHeight = canvas.offsetHeight - 30; // Leave space for labels
 
-    for (let i = 0; i < data.length; i++) {
+    for (let i = 0; i < maxDisplayBin; i++) {
       const magnitude = data[i];
       const barHeight = (magnitude / 255) * maxHeight;
+      const frequency = (i * nyquistFreq) / data.length;
       
-      // Color gradient from blue to cyan based on frequency
-      const hue = 180 + (i / data.length) * 60; // Blue to cyan
-      ctx.fillStyle = `hsl(${hue}, 70%, 60%)`;
+      // Enhanced color scheme based on frequency ranges
+      let color;
+      if (frequency < 200) {
+        // Sub-bass: Deep purple
+        color = `hsl(270, 80%, ${50 + (magnitude / 255) * 30}%)`;
+      } else if (frequency < 500) {
+        // Bass: Blue
+        color = `hsl(240, 90%, ${40 + (magnitude / 255) * 40}%)`;
+      } else if (frequency < 1000) {
+        // Lower midrange: Cyan
+        color = `hsl(180, 85%, ${45 + (magnitude / 255) * 35}%)`;
+      } else if (frequency < 2000) {
+        // Midrange: Green
+        color = `hsl(120, 80%, ${50 + (magnitude / 255) * 30}%)`;
+      } else if (frequency < 4000) {
+        // Upper midrange: Yellow-green
+        color = `hsl(80, 85%, ${55 + (magnitude / 255) * 25}%)`;
+      } else {
+        // Treble: Orange-red
+        color = `hsl(20, 90%, ${60 + (magnitude / 255) * 25}%)`;
+      }
       
-      ctx.fillRect(i * barWidth, maxHeight - barHeight, barWidth - 1, barHeight);
+      ctx.fillStyle = color;
+      ctx.fillRect(i * barWidth, maxHeight - barHeight + 25, barWidth - 0.5, barHeight);
+    }
+
+    // Draw spectral centroid line if enabled
+    if (showSpectralCentroid && spectralCentroid > 0) {
+      const centroidBin = (spectralCentroid * data.length) / nyquistFreq;
+      if (centroidBin < maxDisplayBin) {
+        const centroidX = centroidBin * barWidth;
+        
+        // Draw centroid line
+        ctx.strokeStyle = '#ff4488';
+        ctx.lineWidth = 3;
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        ctx.moveTo(centroidX, 25);
+        ctx.lineTo(centroidX, maxHeight + 25);
+        ctx.stroke();
+        ctx.setLineDash([]); // Reset line dash
+        
+        // Draw centroid label
+        ctx.fillStyle = '#ff4488';
+        ctx.font = 'bold 12px monospace';
+        ctx.fillText(`Centroid: ${Math.round(spectralCentroid)}Hz`, centroidX + 5, 20);
+      }
     }
 
     // Draw frequency labels
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-    ctx.font = '12px monospace';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+    ctx.font = '11px monospace';
     
-    // Label some key frequencies
-    const labelFreqs = [100, 1000, 5000, 10000];
+    // Label key frequencies within our display range
+    const labelFreqs = [100, 500, 1000, 2000, 4000, 6000, 8000];
     labelFreqs.forEach(freq => {
-      if (freq < sampleRate / 2) {
-        const bin = Math.floor((freq * data.length * 2) / sampleRate);
-        if (bin < data.length) {
+      if (freq <= maxDisplayFreq) {
+        const bin = (freq * data.length) / nyquistFreq;
+        if (bin < maxDisplayBin) {
           const x = bin * barWidth;
-          ctx.fillText(`${freq}Hz`, x, 15);
+          const label = freq >= 1000 ? `${freq/1000}kHz` : `${freq}Hz`;
+          ctx.fillText(label, x, maxHeight + 40);
         }
       }
     });
-  }, [data, sampleRate, bufferSize]);
+  }, [data, sampleRate, bufferSize, showSpectralCentroid, spectralCentroid]);
 
   return (
     <canvas

@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { FrequencyDomainVisualizer } from './FrequencyDomainVisualizer';
 
 interface FrequencyDomainToolProps {
@@ -12,6 +13,7 @@ interface FrequencyDomainToolProps {
 }
 
 export function FrequencyDomainTool({ audioData }: FrequencyDomainToolProps) {
+  const [showSpectralCentroid, setShowSpectralCentroid] = useState(true);
   // Calculate spectral centroid - the "center of mass" of the spectrum
   const calculateSpectralCentroid = (frequencyData: Uint8Array, sampleRate: number): number => {
     if (frequencyData.length === 0) return 0;
@@ -68,6 +70,34 @@ export function FrequencyDomainTool({ audioData }: FrequencyDomainToolProps) {
         🌊 Frequency Domain Analysis
       </h2>
       
+      {/* Visualization Controls */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        gap: '1rem',
+        marginBottom: '1rem'
+      }}>
+        <button
+          onClick={() => setShowSpectralCentroid(!showSpectralCentroid)}
+          style={{
+            padding: '0.5rem 1rem',
+            borderRadius: '8px',
+            border: showSpectralCentroid 
+              ? '2px solid #ff4488' 
+              : '2px solid rgba(255, 68, 136, 0.3)',
+            background: showSpectralCentroid 
+              ? 'rgba(255, 68, 136, 0.2)' 
+              : 'rgba(255, 68, 136, 0.05)',
+            color: showSpectralCentroid ? '#ff4488' : '#cccccc',
+            cursor: 'pointer',
+            fontSize: '0.9rem',
+            fontWeight: 'bold'
+          }}
+        >
+          {showSpectralCentroid ? '📍 Hide Centroid' : '📍 Show Centroid'}
+        </button>
+      </div>
+
       {/* Full-width Frequency Visualization */}
       <div style={{
         marginBottom: '1rem'
@@ -76,6 +106,8 @@ export function FrequencyDomainTool({ audioData }: FrequencyDomainToolProps) {
           data={audioData.frequencyDomain} 
           sampleRate={audioData.sampleRate}
           bufferSize={audioData.bufferSize}
+          showSpectralCentroid={showSpectralCentroid}
+          spectralCentroid={spectralCentroid}
         />
       </div>
 
