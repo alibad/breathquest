@@ -64,6 +64,7 @@ const PlayGameComponent = () => {
   const [isWaitingForSilence, setIsWaitingForSilence] = useState(false);
   const [silenceCountdown, setSilenceCountdown] = useState(0);
   const [noiseLevel, setNoiseLevel] = useState(0);
+  const [audioBars, setAudioBars] = useState<number[]>(Array(20).fill(0));
 
   // Refs for audio processing
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -79,6 +80,8 @@ const PlayGameComponent = () => {
   const smoothedAmplitudeRef = useRef(0);
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const silenceLevelsRef = useRef<number[]>([]);
+  const ambientBaselineRef = useRef<number | null>(null);
+  const isWaitingForSilenceRef = useRef<boolean>(false);
 
   // Load calibration data on component mount
   useEffect(() => {
@@ -113,73 +116,183 @@ const PlayGameComponent = () => {
   const startSilenceDetection = async () => {
     try {
       console.log('🔇 Starting silence detection...');
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: { 
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false,
-          sampleRate: 44100
-        } 
-      });
       
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      // Force close any existing audio context
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+        await audioContextRef.current.close();
+      }
+      
+      // Create completely fresh stream - EXACTLY like the working test
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      console.log('🎤 Fresh stream created:', stream.getAudioTracks()[0]?.label);
+      
+      // Create fresh audio context - EXACTLY like the working test  
+      audioContextRef.current = new AudioContext();
+      console.log('🔊 Fresh AudioContext created, state:', audioContextRef.current.state);
       
       if (audioContextRef.current.state === 'suspended') {
         await audioContextRef.current.resume();
       }
       
+      // Simple setup - EXACTLY like working test
       analyserRef.current = audioContextRef.current.createAnalyser();
       microphoneRef.current = audioContextRef.current.createMediaStreamSource(stream);
       
+      // Basic settings first
       analyserRef.current.fftSize = 2048;
       analyserRef.current.smoothingTimeConstant = 0.8;
       analyserRef.current.minDecibels = -90;
       analyserRef.current.maxDecibels = -10;
       
       microphoneRef.current.connect(analyserRef.current);
+      console.log('🔊 Fresh setup complete');
+      
+      // Set state immediately
+      silenceLevelsRef.current = [];
+      ambientBaselineRef.current = null;
+      isWaitingForSilenceRef.current = true; // Use ref for immediate state
       
       setIsWaitingForSilence(true);
       setSilenceCountdown(3);
-      silenceLevelsRef.current = [];
       
+      // Start detection immediately - no timeout needed!
+      console.log('🔊 Starting detection immediately...');
       detectSilence();
       
     } catch (error) {
       console.error('❌ Microphone error:', error);
-      alert('Microphone access denied. Please allow microphone access and refresh the page.');
+      alert(`Microphone error: ${error.message}`);
     }
   };
 
   const detectSilence = () => {
-    if (!analyserRef.current || !isWaitingForSilence) return;
+    if (!analyserRef.current || !isWaitingForSilenceRef.current) {
+      console.log('🔊 Detection stopped - analyser:', !!analyserRef.current, 'waiting:', isWaitingForSilenceRef.current);
+      return;
+    }
     
     const bufferLength = analyserRef.current.fftSize;
     const dataArray = new Uint8Array(bufferLength);
     analyserRef.current.getByteTimeDomainData(dataArray);
     
+    // Debug: Check if we're getting any data
+    const sampleCheck = dataArray.slice(0, 10);
+    if (silenceLevelsRef.current.length % 10 === 0) {
+      console.log('🔊 Raw audio samples:', sampleCheck);
+      console.log('🔊 All samples the same?', new Set(dataArray).size === 1);
+      console.log('🔊 Buffer length:', bufferLength, 'Data array length:', dataArray.length);
+    }
+    
     // Calculate noise level
     let rmsSum = 0;
+    let nonZeroSamples = 0;
+    let minSample = 255;
+    let maxSample = 0;
+    
     for (let i = 0; i < bufferLength; i++) {
-      const sample = (dataArray[i] - 128) / 128;
+      const rawSample = dataArray[i];
+      if (rawSample !== 128) nonZeroSamples++; // 128 is silence in Uint8Array
+      if (rawSample < minSample) minSample = rawSample;
+      if (rawSample > maxSample) maxSample = rawSample;
+      
+      const sample = (rawSample - 128) / 128;
       rmsSum += sample * sample;
     }
     const rms = Math.sqrt(rmsSum / bufferLength);
-    const noiseLevel = rms * 100;
+    let noiseLevel = rms * 100;
+    
+    // If we're getting all zeros, the analyser settings might be wrong
+    if (noiseLevel < 0.01 && nonZeroSamples < 10) {
+      // Try different analyser settings
+      if (analyserRef.current) {
+        analyserRef.current.minDecibels = -100;
+        analyserRef.current.maxDecibels = -30;
+        analyserRef.current.smoothingTimeConstant = 0.3;
+      }
+      
+      // Also try frequency domain for noise level
+      const freqArray = new Uint8Array(analyserRef.current!.frequencyBinCount);
+      analyserRef.current!.getByteFrequencyData(freqArray);
+      
+      let freqSum = 0;
+      for (let i = 0; i < freqArray.length; i++) {
+        freqSum += freqArray[i];
+      }
+      const avgFreq = freqSum / freqArray.length;
+      if (avgFreq > 0.1) {
+        noiseLevel = (avgFreq / 255) * 20; // Use frequency data instead
+        console.log(`🔊 Switching to frequency domain: ${noiseLevel.toFixed(2)}`);
+      }
+    }
+    
+    // Generate live audio visualizer data
+    const freqArray = new Uint8Array(analyserRef.current.frequencyBinCount);
+    analyserRef.current.getByteFrequencyData(freqArray);
+    
+    // Create 20 frequency bands for visualization
+    const barsData: number[] = [];
+    const binsPerBar = Math.floor(freqArray.length / 20);
+    let totalFreqActivity = 0;
+    
+    for (let i = 0; i < 20; i++) {
+      const startBin = i * binsPerBar;
+      const endBin = Math.min(startBin + binsPerBar, freqArray.length);
+      let sum = 0;
+      for (let j = startBin; j < endBin; j++) {
+        sum += freqArray[j];
+      }
+      const avgBin = sum / (endBin - startBin);
+      const barValue = (avgBin / 255) * 100; // Convert to percentage
+      barsData.push(barValue);
+      totalFreqActivity += barValue;
+    }
+    
+    // If no frequency activity at all, add some test data to verify UI is working
+    if (totalFreqActivity < 1 && silenceLevelsRef.current.length > 5) {
+      console.warn('🔊 NO FREQUENCY ACTIVITY! Adding test data to verify UI...');
+      // Add some random test data to see if bars work
+      for (let i = 0; i < 20; i++) {
+        barsData[i] = Math.random() * 30 + 5; // Random between 5-35%
+      }
+    }
+    
+    setAudioBars(barsData);
+    
+    // Debug audio data every 30 samples
+    if (silenceLevelsRef.current.length % 30 === 0) {
+      const totalFreqActivity = barsData.reduce((sum, val) => sum + val, 0) / barsData.length;
+      console.log(`🔊 Audio debug - RMS: ${rms.toFixed(4)}, NoiseLevel: ${noiseLevel.toFixed(2)}, NonZeroSamples: ${nonZeroSamples}/${bufferLength}, Range: ${minSample}-${maxSample}, FreqActivity: ${totalFreqActivity.toFixed(2)}%`);
+    }
     
     setNoiseLevel(noiseLevel);
     silenceLevelsRef.current.push(noiseLevel);
     
-    // Keep only last 30 samples (about 0.5 seconds)
-    if (silenceLevelsRef.current.length > 30) {
+    // Keep full history until baseline is established, then keep last 30 samples
+    if (ambientBaselineRef.current !== null && silenceLevelsRef.current.length > 30) {
       silenceLevelsRef.current.shift();
     }
     
-    // Check if environment is quiet enough (threshold: 1.0)
+    // Establish ambient baseline from first 20 samples (about 0.3 seconds) - much faster!
+    if (ambientBaselineRef.current === null && silenceLevelsRef.current.length >= 20) {
+      const baseline = silenceLevelsRef.current.reduce((sum, val) => sum + val, 0) / silenceLevelsRef.current.length;
+      ambientBaselineRef.current = Math.max(baseline, 0.5); // Minimum baseline of 0.5
+      console.log(`🎯 Ambient baseline established: ${ambientBaselineRef.current.toFixed(2)} (from ${baseline.toFixed(2)})`);
+    }
+    
+    // Calculate current average and threshold
     const recentAverage = silenceLevelsRef.current.length > 0 
       ? silenceLevelsRef.current.reduce((sum, val) => sum + val, 0) / silenceLevelsRef.current.length 
       : noiseLevel;
     
-    if (recentAverage < 1.0 && silenceLevelsRef.current.length >= 15) {
+    // Much stricter threshold: baseline + 50% tolerance (more sensitive to noise)
+    const threshold = ambientBaselineRef.current !== null ? ambientBaselineRef.current * 1.5 : 1.0;
+    
+    // Debug logging
+    if (silenceLevelsRef.current.length % 30 === 0) {
+      console.log(`🔊 Noise levels - Current: ${noiseLevel.toFixed(2)}, Average: ${recentAverage.toFixed(2)}, Baseline: ${ambientBaselineRef.current?.toFixed(2) || 'establishing'}, Threshold: ${threshold.toFixed(2)}`);
+    }
+    
+    if (ambientBaselineRef.current !== null && recentAverage <= threshold && silenceLevelsRef.current.length >= 25) {
       // Environment is quiet, start countdown
       if (!silenceTimerRef.current) {
         console.log('🤫 Quiet environment detected, starting countdown...');
@@ -200,13 +313,14 @@ const PlayGameComponent = () => {
     } else {
       // Environment too noisy, reset countdown
       if (silenceTimerRef.current) {
+        console.log(`🔊 Environment too noisy (${recentAverage.toFixed(2)} > ${threshold.toFixed(2)}), resetting countdown`);
         clearInterval(silenceTimerRef.current);
         silenceTimerRef.current = null;
         setSilenceCountdown(3);
       }
     }
     
-    if (isWaitingForSilence) {
+    if (isWaitingForSilenceRef.current) {
       animationRef.current = requestAnimationFrame(detectSilence);
     }
   };
@@ -254,10 +368,12 @@ const PlayGameComponent = () => {
     isListeningRef.current = false;
     setIsCalibrating(false);
     setIsWaitingForSilence(false);
+    isWaitingForSilenceRef.current = false; // Stop detection loop
     setShowUI(false);
     setCalibrationProgress(0);
     setSilenceCountdown(0);
     setNoiseLevel(0);
+    setAudioBars(Array(20).fill(0));
     
     // Clear silence timer
     if (silenceTimerRef.current) {
@@ -550,7 +666,55 @@ const PlayGameComponent = () => {
             color: '#ccc', 
             marginBottom: '1rem' 
           }}>
-            Please ensure your environment is quiet so we can establish a proper baseline.
+            {ambientBaselineRef.current === null 
+              ? `Establishing baseline... ${Math.max(0, 20 - silenceLevelsRef.current.length)}/20 samples`
+              : 'Environment detected! Stay quiet for the game to begin.'
+            }
+          </div>
+
+          {/* Live Audio Visualizer - Shows RAW audio activity */}
+          <div style={{
+            marginBottom: '1rem',
+            padding: '1rem',
+            background: 'rgba(0, 0, 0, 0.4)',
+            borderRadius: '8px',
+            border: '1px solid rgba(255, 255, 255, 0.1)'
+          }}>
+            <div style={{ 
+              fontSize: '0.9rem', 
+              color: '#ff9500', 
+              marginBottom: '0.5rem',
+              fontWeight: 'bold'
+            }}>
+              🔊 Live Audio Activity
+            </div>
+            
+            {/* Raw Audio Bars */}
+            <div style={{
+              display: 'flex',
+              gap: '2px',
+              height: '40px',
+              alignItems: 'flex-end',
+              marginBottom: '0.5rem'
+            }}>
+              {audioBars.map((barLevel, i) => {
+                const barHeight = Math.max(2, (barLevel / 100) * 40); // Scale to 40px max height
+                return (
+                  <div key={i} style={{
+                    flex: 1,
+                    height: `${barHeight}px`,
+                    background: barLevel > 30 ? '#ff4444' : barLevel > 15 ? '#ffaa44' : '#00ff88',
+                    borderRadius: '2px',
+                    transition: 'height 0.05s ease',
+                    minHeight: '2px' // Always show some bar
+                  }}></div>
+                );
+              })}
+            </div>
+            
+            <div style={{ fontSize: '0.8rem', color: '#888' }}>
+              Live audio frequency visualization
+            </div>
           </div>
 
           {/* Noise Level Meter */}
@@ -565,14 +729,19 @@ const PlayGameComponent = () => {
           }}>
             <div style={{
               height: '100%',
-              width: `${Math.min(100, noiseLevel * 10)}%`,
-              background: noiseLevel < 1.0 ? 'linear-gradient(to right, #00ff88, #4488ff)' : 
-                         noiseLevel < 3.0 ? 'linear-gradient(to right, #ffff00, #ff8844)' :
-                         'linear-gradient(to right, #ff4444, #ff8844)',
-              transition: 'width 0.1s ease',
+              width: `${Math.min(100, noiseLevel * 10)}%`, // More responsive scaling
+              background: (() => {
+                const threshold = ambientBaselineRef.current !== null ? ambientBaselineRef.current * 1.5 : 1.0;
+                return noiseLevel <= threshold ? 'linear-gradient(to right, #00ff88, #4488ff)' : 
+                       noiseLevel < threshold * 2 ? 'linear-gradient(to right, #ffff00, #ff8844)' :
+                       'linear-gradient(to right, #ff4444, #ff8844)';
+              })(),
+              transition: 'width 0.05s ease', // Faster response
               borderRadius: '10px'
             }}></div>
           </div>
+
+
 
           <div style={{
             display: 'grid',
@@ -582,17 +751,32 @@ const PlayGameComponent = () => {
             color: '#888'
           }}>
             <div>
-              <div style={{ color: noiseLevel < 1.0 ? '#00ff88' : '#ff8844', fontWeight: 'bold' }}>
+              <div style={{ 
+                color: (() => {
+                  const threshold = ambientBaselineRef.current !== null ? ambientBaselineRef.current * 1.5 : 1.0;
+                  return noiseLevel <= threshold ? '#00ff88' : '#ff8844';
+                })(), 
+                fontWeight: 'bold' 
+              }}>
                 Environment Status
               </div>
-              <div>{noiseLevel < 1.0 ? '✅ Quiet enough' : '⚠️ Too noisy'}</div>
+              <div>
+                {(() => {
+                  const threshold = ambientBaselineRef.current !== null ? ambientBaselineRef.current * 1.5 : 1.0;
+                  const status = noiseLevel <= threshold ? '✅ Quiet enough' : '⚠️ Too noisy';
+                  return `${status} (${noiseLevel.toFixed(1)}/${threshold.toFixed(1)})`;
+                })()}
+              </div>
             </div>
             <div>
               <div style={{ color: '#ff9500', fontWeight: 'bold' }}>
                 Starting in
               </div>
               <div style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>
-                {silenceCountdown > 0 ? `${silenceCountdown}s` : 'Waiting...'}
+                {ambientBaselineRef.current === null 
+                  ? 'Establishing...'
+                  : silenceCountdown > 0 ? `${silenceCountdown}s` : 'Waiting...'
+                }
               </div>
             </div>
           </div>
