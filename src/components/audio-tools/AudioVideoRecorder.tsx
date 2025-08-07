@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 
 interface AudioVideoRecorderProps {
   isListening: boolean;
   canvasRefs: any[];
   audioStream?: MediaStream;
+  expansionStates?: { frequencyBand: boolean; lpcAnalysis: boolean }; // Track expansion states
 }
 
 interface CanvasSelection {
@@ -15,18 +16,39 @@ interface CanvasSelection {
   selected: boolean;
 }
 
-export function AudioVideoRecorder({ isListening, canvasRefs, audioStream }: AudioVideoRecorderProps) {
+export function AudioVideoRecorder({ isListening, canvasRefs, audioStream, expansionStates }: AudioVideoRecorderProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [recordedChunks, setRecordedChunks] = useState<Blob[]>([]);
-  const [selectedCanvases, setSelectedCanvases] = useState<CanvasSelection[]>([
-    { index: 0, label: 'Time Domain Analysis', color: '#00ff88', selected: true },
-    { index: 1, label: 'Amplitude Envelope Analysis', color: '#ff8844', selected: true },
-    { index: 2, label: 'Frequency Domain Analysis', color: '#4488ff', selected: true },
-    { index: 3, label: 'Multi-Band Frequency Analysis', color: '#8b5cf6', selected: true },
-    { index: 4, label: 'Advanced Spectral Analysis', color: '#9333ea', selected: true },
-    { index: 5, label: 'LPC Analysis', color: '#ffa500', selected: true }
-  ]);
+  // Initialize selection based on expansion states
+  const getInitialSelection = () => {
+    return [
+      { index: 0, label: 'Time Domain Analysis', color: '#00ff88', selected: true },
+      { index: 1, label: 'Amplitude Envelope Analysis', color: '#ff8844', selected: true },
+      { index: 2, label: 'Frequency Domain Analysis', color: '#4488ff', selected: true },
+      { index: 3, label: 'Multi-Band Frequency Analysis', color: '#8b5cf6', selected: expansionStates?.frequencyBand ?? false },
+      { index: 4, label: 'LPC Analysis', color: '#ffa500', selected: expansionStates?.lpcAnalysis ?? false }
+    ];
+  };
+
+  const [selectedCanvases, setSelectedCanvases] = useState<CanvasSelection[]>(getInitialSelection());
   const [showConfig, setShowConfig] = useState(false);
+
+  // Update selection when expansion states change (only on mount or major changes)
+  useEffect(() => {
+    // Only update if this is the initial load - don't override user selections
+    setSelectedCanvases(prev => {
+      // Update only the collapsed tools to match expansion state, but preserve user overrides
+      return prev.map(item => {
+        if (item.label === 'Multi-Band Frequency Analysis') {
+          return { ...item, selected: expansionStates?.frequencyBand ?? item.selected };
+        }
+        if (item.label === 'LPC Analysis') {
+          return { ...item, selected: expansionStates?.lpcAnalysis ?? item.selected };
+        }
+        return item;
+      });
+    });
+  }, []); // Only run on mount, don't react to expansionStates changes
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedStreamRef = useRef<MediaStream | null>(null);
   const renderingRef = useRef<boolean>(false);
@@ -350,7 +372,7 @@ export function AudioVideoRecorder({ isListening, canvasRefs, audioStream }: Aud
             gap: '0.4rem'
           }}
         >
-                          ⚙️ Configure ({selectedCanvases.filter(item => item.selected).length}/6)
+                          ⚙️ Configure ({selectedCanvases.filter(item => item.selected).length}/{selectedCanvases.length})
         </button>
       )}
 

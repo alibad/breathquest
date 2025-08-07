@@ -50,12 +50,32 @@ const PREDEFINED_BAND_SETS = {
 };
 
 export function FrequencyBandTool({ audioData, canvasRef }: FrequencyBandToolProps) {
+  // Load state from localStorage, default to collapsed
+  const [isExpanded, setIsExpanded] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('frequencyBandTool-expanded');
+      return saved ? JSON.parse(saved) : false;
+    }
+    return false;
+  });
   const [bandSet, setBandSet] = useState<'breath' | 'music' | 'voice'>('breath');
   const [bandEnergies, setBandEnergies] = useState<number[]>([]);
   const [totalEnergy, setTotalEnergy] = useState(0);
   const [dominantBand, setDominantBand] = useState<string>('');
 
   const bands = PREDEFINED_BAND_SETS[bandSet];
+
+  // Save state to localStorage when it changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('frequencyBandTool-expanded', JSON.stringify(isExpanded));
+    }
+  }, [isExpanded]);
+
+  // Toggle function
+  const toggleExpanded = () => {
+    setIsExpanded(!isExpanded);
+  };
 
   const calculateBandEnergies = useCallback((frequencyData: Uint8Array, sampleRate: number) => {
     const nyquist = sampleRate / 2;
@@ -85,7 +105,8 @@ export function FrequencyBandTool({ audioData, canvasRef }: FrequencyBandToolPro
   }, [bands]);
 
   useEffect(() => {
-    if (audioData.frequencyDomain.length > 0) {
+    // Only process if expanded (performance optimization)
+    if (isExpanded && audioData.frequencyDomain.length > 0) {
       const { energies, totalEnergy: total } = calculateBandEnergies(
         audioData.frequencyDomain, 
         audioData.sampleRate
@@ -98,7 +119,7 @@ export function FrequencyBandTool({ audioData, canvasRef }: FrequencyBandToolPro
       const maxEnergyIndex = energies.indexOf(Math.max(...energies));
       setDominantBand(bands[maxEnergyIndex]?.name || '');
     }
-  }, [audioData.frequencyDomain, audioData.sampleRate, calculateBandEnergies, bands]);
+  }, [isExpanded, audioData.frequencyDomain, audioData.sampleRate, calculateBandEnergies, bands]);
 
   const getBandPercentage = (energy: number) => {
     return totalEnergy > 0 ? (energy / totalEnergy) * 100 : 0;
@@ -112,20 +133,67 @@ export function FrequencyBandTool({ audioData, canvasRef }: FrequencyBandToolPro
       borderRadius: '12px',
       border: '1px solid rgba(255, 255, 255, 0.1)'
     }}>
-      <h2 style={{ 
-        fontSize: '1.5rem', 
-        fontWeight: 'bold', 
-        marginBottom: '1rem',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        WebkitBackgroundClip: 'text',
-        WebkitTextFillColor: 'transparent',
-        backgroundClip: 'text'
-      }}>
-        📊 Multi-Band Frequency Analysis
-      </h2>
+      <div 
+        onClick={toggleExpanded}
+        style={{
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: '1rem'
+        }}
+      >
+        <h2 style={{ 
+          fontSize: '1.5rem', 
+          fontWeight: 'bold', 
+          margin: 0,
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          backgroundClip: 'text'
+        }}>
+          📊 Multi-Band Frequency Analysis
+        </h2>
+        <div style={{
+          fontSize: '1.2rem',
+          color: '#999',
+          transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+          transition: 'transform 0.3s ease'
+        }}>
+          ▼
+        </div>
+      </div>
 
-      {/* Band Set Selection */}
-      <div style={{ marginBottom: '1.5rem' }}>
+      {/* Collapsed state - show basic info */}
+      {!isExpanded && (
+        <div 
+          onClick={toggleExpanded}
+          style={{
+            padding: '1rem',
+            background: 'rgba(255, 255, 255, 0.05)',
+            borderRadius: '8px',
+            color: '#999',
+            textAlign: 'center',
+            fontSize: '0.9rem',
+            cursor: 'pointer',
+            transition: 'background 0.2s ease'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+          }}
+        >
+          Click to expand advanced frequency band analysis
+        </div>
+      )}
+
+      {/* Expanded content */}
+      {isExpanded && (
+        <>
+          {/* Band Set Selection */}
+          <div style={{ marginBottom: '1.5rem' }}>
         <label style={{ 
           display: 'block', 
           marginBottom: '0.5rem', 
@@ -368,6 +436,8 @@ export function FrequencyBandTool({ audioData, canvasRef }: FrequencyBandToolPro
           </div>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 }

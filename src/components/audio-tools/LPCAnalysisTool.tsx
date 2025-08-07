@@ -22,6 +22,14 @@ interface LPCResults {
 }
 
 export function LPCAnalysisTool({ audioData, canvasRef }: LPCAnalysisToolProps) {
+  // Load state from localStorage, default to collapsed
+  const [isExpanded, setIsExpanded] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('lpcAnalysisTool-expanded');
+      return saved ? JSON.parse(saved) : false;
+    }
+    return false;
+  });
   const [lpcOrder, setLpcOrder] = useState<number>(10);
   const [lpcResults, setLpcResults] = useState<LPCResults>({
     coefficients: [],
@@ -34,6 +42,18 @@ export function LPCAnalysisTool({ audioData, canvasRef }: LPCAnalysisToolProps) 
   const [analysisMode, setAnalysisMode] = useState<'coefficients' | 'residual' | 'formants' | 'prediction'>('coefficients');
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [updateCounter, setUpdateCounter] = useState<number>(0);
+
+  // Save state to localStorage when it changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('lpcAnalysisTool-expanded', JSON.stringify(isExpanded));
+    }
+  }, [isExpanded]);
+
+  // Toggle function
+  const toggleExpanded = () => {
+    setIsExpanded(!isExpanded);
+  };
 
   // Convert Uint8Array to Float32Array with proper normalization
   const normalizeAudioData = (data: Uint8Array): Float32Array => {
@@ -207,7 +227,8 @@ export function LPCAnalysisTool({ audioData, canvasRef }: LPCAnalysisToolProps) 
 
   // Main LPC analysis (responsive to audio changes)
   useEffect(() => {
-    if (audioData.timeDomain.length > 0) {
+    // Only process if expanded (performance optimization)
+    if (isExpanded && audioData.timeDomain.length > 0) {
       // Add debug logging to see if this is triggering
       console.log('LPC: Received new audio data, length:', audioData.timeDomain.length, 'Counter:', updateCounter);
       
@@ -277,7 +298,7 @@ export function LPCAnalysisTool({ audioData, canvasRef }: LPCAnalysisToolProps) 
         setIsProcessing(false);
       }
     }
-  }, [audioData.timeDomain, audioData.sampleRate, lpcOrder]);
+  }, [isExpanded, audioData.timeDomain, audioData.sampleRate, lpcOrder]);
 
   return (
     <div style={{
@@ -287,18 +308,64 @@ export function LPCAnalysisTool({ audioData, canvasRef }: LPCAnalysisToolProps) 
       borderRadius: '12px',
       border: '1px solid rgba(255, 165, 0, 0.3)'
     }}>
-      <h2 style={{
-        color: '#ffa500',
-        fontSize: '1.5rem',
-        marginBottom: '1rem',
-        textAlign: 'center',
-        fontWeight: 'bold'
-      }}>
-        🎯 Linear Predictive Coding (LPC) Analysis {isProcessing && <span style={{ color: '#00ff88', fontSize: '0.8rem' }}>⚡ Processing...</span>}
-      </h2>
+      <div 
+        onClick={toggleExpanded}
+        style={{
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: '1rem'
+        }}
+      >
+        <h2 style={{
+          color: '#ffa500',
+          fontSize: '1.5rem',
+          margin: 0,
+          fontWeight: 'bold'
+        }}>
+          🎯 Linear Predictive Coding (LPC) Analysis {isProcessing && <span style={{ color: '#00ff88', fontSize: '0.8rem' }}>⚡ Processing...</span>}
+        </h2>
+        <div style={{
+          fontSize: '1.2rem',
+          color: '#999',
+          transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+          transition: 'transform 0.3s ease'
+        }}>
+          ▼
+        </div>
+      </div>
       
-      {/* Controls */}
-      <div style={{
+      {/* Collapsed state - show basic info */}
+      {!isExpanded && (
+        <div 
+          onClick={toggleExpanded}
+          style={{
+            padding: '1rem',
+            background: 'rgba(255, 165, 0, 0.1)',
+            borderRadius: '8px',
+            color: '#999',
+            textAlign: 'center',
+            fontSize: '0.9rem',
+            cursor: 'pointer',
+            transition: 'background 0.2s ease'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'rgba(255, 165, 0, 0.2)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'rgba(255, 165, 0, 0.1)';
+          }}
+        >
+          Click to expand advanced LPC analysis (CPU intensive)
+        </div>
+      )}
+
+      {/* Expanded content */}
+      {isExpanded && (
+        <>
+          {/* Controls */}
+          <div style={{
         marginBottom: '1.5rem',
         display: 'flex',
         gap: '2rem',
@@ -501,6 +568,8 @@ export function LPCAnalysisTool({ audioData, canvasRef }: LPCAnalysisToolProps) 
           </div>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 }

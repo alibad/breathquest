@@ -36,6 +36,19 @@ export default function AudioToolsPage() {
 
   const lpcAnalysisCanvasRef = useRef<HTMLCanvasElement>(null);
 
+  // Function to get expansion states from localStorage
+  const getExpansionStates = () => {
+    if (typeof window === 'undefined') return { frequencyBand: false, lpcAnalysis: false };
+    
+    const frequencyBandExpanded = localStorage.getItem('frequencyBandTool-expanded');
+    const lpcAnalysisExpanded = localStorage.getItem('lpcAnalysisTool-expanded');
+    
+    return {
+      frequencyBand: frequencyBandExpanded ? JSON.parse(frequencyBandExpanded) : false,
+      lpcAnalysis: lpcAnalysisExpanded ? JSON.parse(lpcAnalysisExpanded) : false
+    };
+  };
+
 
   const startAudioCapture = async () => {
     try {
@@ -239,6 +252,7 @@ export default function AudioToolsPage() {
           isListening={isListening}
           canvasRefs={[timeDomainCanvasRef, amplitudeEnvelopeCanvasRef, frequencyDomainCanvasRef, frequencyBandCanvasRef, lpcAnalysisCanvasRef]}
           audioStream={audioStreamRef.current || undefined}
+          expansionStates={getExpansionStates()}
         />
       )}
 
