@@ -3,10 +3,50 @@
 import PlayGameComponent from '@/components/hypothesis1/PlayGameComponent';
 import CalibrateBreathComponent from '@/components/hypothesis1/CalibrateBreathComponent';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export default function Hypothesis1Page() {
-  const [activeTab, setActiveTab] = useState<'play' | 'calibrate'>('play');
+  // Start with calibration as default to avoid hydration issues
+  const [activeTab, setActiveTab] = useState<'play' | 'calibrate'>('calibrate');
+  const [isFirstTime, setIsFirstTime] = useState(false);
+  const [hasCalibration, setHasCalibration] = useState(false);
+  const [isClient, setIsClient] = useState(false);
+  const [hasUserManuallySelectedTab, setHasUserManuallySelectedTab] = useState(false);
+
+  // Check calibration status only on client side to avoid hydration issues
+  useEffect(() => {
+    // Mark as client-side rendered
+    setIsClient(true);
+    
+    const checkCalibrationStatus = () => {
+      try {
+        const saved = localStorage.getItem('breathquest_calibration');
+        if (saved) {
+          const data = JSON.parse(saved);
+          const isRecent = Date.now() - data.timestamp < 24 * 60 * 60 * 1000;
+          setHasCalibration(isRecent);
+          setIsFirstTime(false);
+          
+          // Set smart default tab only after client hydration (but not if user manually clicked)
+          if (isRecent && activeTab === 'calibrate' && !hasUserManuallySelectedTab) {
+            setActiveTab('play');
+          }
+        } else {
+          setHasCalibration(false);
+          setIsFirstTime(true);
+        }
+      } catch (error) {
+        setHasCalibration(false);
+        setIsFirstTime(true);
+      }
+    };
+
+    checkCalibrationStatus();
+    
+    // Re-check when activeTab changes (in case user just completed calibration)
+    const interval = setInterval(checkCalibrationStatus, 1000);
+    return () => clearInterval(interval);
+  }, [activeTab]);
   
   return (
     <div style={{
@@ -62,6 +102,36 @@ export default function Hypothesis1Page() {
         </p>
       </div>
 
+      {/* First-Time User Welcome Banner */}
+      {isClient && isFirstTime && (
+        <div style={{
+          padding: '1.5rem 2rem',
+          background: 'linear-gradient(135deg, rgba(0, 255, 136, 0.15), rgba(68, 136, 255, 0.15))',
+          borderBottom: '2px solid rgba(0, 255, 136, 0.3)',
+          textAlign: 'center'
+        }}>
+          <div style={{
+            fontSize: '1.3rem',
+            fontWeight: 'bold',
+            color: '#00ff88',
+            marginBottom: '0.5rem'
+          }}>
+            🎯 Welcome to Enhanced Breath Detection!
+          </div>
+          <p style={{
+            fontSize: '1rem',
+            color: '#ccc',
+            maxWidth: '600px',
+            margin: '0 auto',
+            lineHeight: '1.5'
+          }}>
+            For the <strong style={{ color: '#4488ff' }}>best gaming experience</strong>, we recommend 
+            completing the <strong style={{ color: '#00ff88' }}>30-second calibration</strong> first. 
+            This creates a personalized AI model that dramatically improves breath detection accuracy!
+          </p>
+        </div>
+      )}
+
       {/* Tab Navigation */}
       <div style={{
         padding: '2rem',
@@ -71,7 +141,10 @@ export default function Hypothesis1Page() {
         flexWrap: 'wrap'
       }}>
         <button
-          onClick={() => setActiveTab('play')}
+          onClick={() => {
+            setHasUserManuallySelectedTab(true);
+            setActiveTab('play');
+          }}
           style={{
             padding: '1rem 1.5rem',
             fontSize: '1rem',
@@ -81,14 +154,40 @@ export default function Hypothesis1Page() {
             color: activeTab === 'play' ? '#00ff88' : '#fff',
             borderRadius: '12px',
             cursor: 'pointer',
-            transition: 'all 0.3s ease'
+            transition: 'all 0.3s ease',
+            position: 'relative',
+            opacity: !hasCalibration && !isFirstTime ? 0.7 : 1
           }}
         >
           🎮 Play Game
+          {isClient && hasCalibration && (
+            <div style={{
+              position: 'absolute',
+              top: '-5px',
+              right: '-5px',
+              width: '12px',
+              height: '12px',
+              background: '#00ff88',
+              borderRadius: '50%',
+              boxShadow: '0 0 8px rgba(0, 255, 136, 0.8)'
+            }}></div>
+          )}
+          {isClient && !hasCalibration && !isFirstTime && (
+            <div style={{
+              fontSize: '0.7rem',
+              color: '#ffaa00',
+              marginTop: '2px'
+            }}>
+              Calibration Recommended
+            </div>
+          )}
         </button>
         
         <button
-          onClick={() => setActiveTab('calibrate')}
+          onClick={() => {
+            setHasUserManuallySelectedTab(true);
+            setActiveTab('calibrate');
+          }}
           style={{
             padding: '1rem 1.5rem',
             fontSize: '1rem',
@@ -98,10 +197,29 @@ export default function Hypothesis1Page() {
             color: activeTab === 'calibrate' ? '#4488ff' : '#fff',
             borderRadius: '12px',
             cursor: 'pointer',
-            transition: 'all 0.3s ease'
+            transition: 'all 0.3s ease',
+            position: 'relative'
           }}
         >
           📦 Calibrate Breath
+          {isClient && isFirstTime && (
+            <div style={{
+              position: 'absolute',
+              top: '-8px',
+              right: '-8px',
+              background: 'linear-gradient(45deg, #ff9500, #ffb347)',
+              color: '#fff',
+              fontSize: '0.6rem',
+              fontWeight: 'bold',
+              padding: '2px 6px',
+              borderRadius: '8px',
+              boxShadow: '0 2px 8px rgba(255, 149, 0, 0.6)',
+              animation: 'pulse 2s infinite'
+            }}>
+              START HERE
+            </div>
+          )}
+
         </button>
       </div>
 

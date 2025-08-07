@@ -17,6 +17,9 @@ interface AudioFeatures {
   lpcGain: number;
   breathingFreqPower: number;
   spectralCentroid: number;
+  spectralRolloff: number;
+  dominantFrequency: number;
+  amplitudeVariance: number;
 }
 
 interface CalibrationData {
@@ -29,6 +32,14 @@ interface CalibrationData {
     min: number;
     max: number;
     average: number;
+  };
+  // Enhanced spectral analysis calibration data
+  spectralFeatures?: {
+    inhaleRolloffAvg: number;
+    exhaleRolloffAvg: number;
+    inhaleVarianceAvg: number;
+    exhaleVarianceAvg: number;
+    rolloffThreshold: number; // For real-time detection
   };
 }
 
@@ -57,7 +68,10 @@ const PlayGameComponent = () => {
     envelope: 0,
     lpcGain: 0,
     breathingFreqPower: 0,
-    spectralCentroid: 0
+    spectralCentroid: 0,
+    spectralRolloff: 0,
+    dominantFrequency: 0,
+    amplitudeVariance: 0
   });
   const [calibrationData, setCalibrationData] = useState<CalibrationData | null>(null);
   const [isUsingCalibration, setIsUsingCalibration] = useState(false);
@@ -65,6 +79,7 @@ const PlayGameComponent = () => {
   const [silenceCountdown, setSilenceCountdown] = useState(0);
   const [noiseLevel, setNoiseLevel] = useState(0);
   const [audioBars, setAudioBars] = useState<number[]>(Array(20).fill(0));
+  const [isClient, setIsClient] = useState(false);
 
   // Refs for audio processing
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -84,8 +99,10 @@ const PlayGameComponent = () => {
   const ambientBaselineRef = useRef<number | null>(null);
   const isWaitingForSilenceRef = useRef<boolean>(false);
 
-  // Load calibration data on component mount
+  // Load calibration data on component mount (client-side only)
   useEffect(() => {
+    setIsClient(true);
+    
     const loadCalibrationData = () => {
       try {
         const saved = localStorage.getItem('breathquest_calibration');
@@ -113,6 +130,108 @@ const PlayGameComponent = () => {
 
     loadCalibrationData();
   }, []);
+
+  // Enhanced spectral analysis functions (from calibration component)
+  const calculateSpectralCentroid = (frequencyData: Uint8Array, sampleRate: number): number => {
+    if (frequencyData.length === 0) return 0;
+    let weightedSum = 0;
+    let magnitudeSum = 0;
+    
+    for (let i = 0; i < frequencyData.length; i++) {
+      const magnitude = frequencyData[i];
+      const frequency = (i * sampleRate) / (frequencyData.length * 2);
+      weightedSum += frequency * magnitude;
+      magnitudeSum += magnitude;
+    }
+    
+    return magnitudeSum > 0 ? weightedSum / magnitudeSum : 0;
+  };
+
+  const calculateSpectralRolloff = (frequencyData: Uint8Array, sampleRate: number, threshold: number = 0.85): number => {
+    const nyquist = sampleRate / 2;
+    const binCount = frequencyData.length;
+    
+    let totalEnergy = 0;
+    for (let i = 0; i < binCount; i++) {
+      const magnitude = frequencyData[i] / 255.0;
+      totalEnergy += magnitude * magnitude;
+    }
+    
+    let cumulativeEnergy = 0;
+    const targetEnergy = totalEnergy * threshold;
+    
+    for (let i = 0; i < binCount; i++) {
+      const magnitude = frequencyData[i] / 255.0;
+      cumulativeEnergy += magnitude * magnitude;
+      
+      if (cumulativeEnergy >= targetEnergy) {
+        return (i / binCount) * nyquist;
+      }
+    }
+    
+    return nyquist;
+  };
+
+  const calculateDominantFrequency = (frequencyData: Uint8Array, sampleRate: number): number => {
+    if (frequencyData.length === 0) return 0;
+    let maxMagnitude = 0;
+    let dominantBin = 0;
+    
+    for (let i = 0; i < frequencyData.length; i++) {
+      if (frequencyData[i] > maxMagnitude) {
+        maxMagnitude = frequencyData[i];
+        dominantBin = i;
+      }
+    }
+    
+    return (dominantBin * sampleRate) / (frequencyData.length * 2);
+  };
+
+  const calculateAmplitudeVariance = (timeDomain: Uint8Array): number => {
+    if (timeDomain.length === 0) return 0;
+    
+    // Calculate mean amplitude
+    let sum = 0;
+    for (let i = 0; i < timeDomain.length; i++) {
+      const sample = Math.abs((timeDomain[i] - 128) / 128.0);
+      sum += sample;
+    }
+    const mean = sum / timeDomain.length;
+    
+    // Calculate variance
+    let variance = 0;
+    for (let i = 0; i < timeDomain.length; i++) {
+      const sample = Math.abs((timeDomain[i] - 128) / 128.0);
+      variance += Math.pow(sample - mean, 2);
+    }
+    
+    return variance / timeDomain.length;
+  };
+
+  // Enhanced breath detection using calibration data
+  const detectBreathTypeAdvanced = (rolloff: number, variance: number, centroid: number): 'inhale' | 'exhale' | 'unknown' => {
+    if (!calibrationData?.spectralFeatures) {
+      // Fallback to centroid-based detection when no advanced calibration
+      return centroid >= 700 ? 'inhale' : centroid > 0 ? 'exhale' : 'unknown';
+    }
+    
+    const { rolloffThreshold, inhaleVarianceAvg, exhaleVarianceAvg } = calibrationData.spectralFeatures;
+    
+    // Primary detection: rolloff threshold (our key research finding!)
+    if (rolloff > rolloffThreshold) {
+      return 'inhale';
+    } else if (rolloff < rolloffThreshold * 0.7) {
+      return 'exhale';
+    }
+    
+    // Secondary detection: amplitude variance
+    const varianceThreshold = (inhaleVarianceAvg + exhaleVarianceAvg) / 2;
+    if (variance < varianceThreshold) {
+      return 'inhale'; // More steady breathing
+    } else {
+      return 'exhale'; // More variable breathing
+    }
+  };
 
   const startSilenceDetection = async () => {
     try {
@@ -460,23 +579,21 @@ const PlayGameComponent = () => {
     }
     lpcGain = Math.sqrt(lpcGain / (bufferLength - 4));
     
-    // Spectral centroid
-    let weightedSum = 0;
-    let magnitudeSum = 0;
-    for (let i = breathingBinStart; i < validBinEnd; i++) {
-      const frequency = i * binSize;
-      const magnitude = freqArray[i];
-      weightedSum += frequency * magnitude;
-      magnitudeSum += magnitude;
-    }
-    const spectralCentroid = magnitudeSum > 0 ? weightedSum / magnitudeSum : 0;
+    // Enhanced spectral analysis
+    const spectralCentroid = calculateSpectralCentroid(freqArray, sampleRate);
+    const spectralRolloff = calculateSpectralRolloff(freqArray, sampleRate);
+    const dominantFrequency = calculateDominantFrequency(freqArray, sampleRate);
+    const amplitudeVariance = calculateAmplitudeVariance(dataArray);
     
     const features: AudioFeatures = {
       rms,
       envelope,
       lpcGain,
       breathingFreqPower,
-      spectralCentroid
+      spectralCentroid,
+      spectralRolloff,
+      dominantFrequency,
+      amplitudeVariance
     };
     
     const rawAmplitude = Math.max(
@@ -543,22 +660,21 @@ const PlayGameComponent = () => {
       let newState: BreathState;
       let confidence = 0;
       
-      // Dynamic thresholds based on calibration data
+      // Dynamic thresholds based on calibration data (made more sensitive)
       const inhaleThreshold = calibrationData && isUsingCalibration 
-        ? calibrationData.inhaleMax * 0.4 // 40% of calibrated max inhale
+        ? Math.max(1.5, calibrationData.inhaleMax * 0.2) // 20% of calibrated max inhale, minimum 1.5
         : 2.0; // Default threshold
       const exhaleThreshold = calibrationData && isUsingCalibration 
-        ? calibrationData.exhaleMax * 0.3 // 30% of calibrated max exhale  
+        ? Math.max(1.0, calibrationData.exhaleMax * 0.15) // 15% of calibrated max exhale, minimum 1.0  
         : 1.5; // Default threshold
       const normalThreshold = calibrationData && isUsingCalibration
         ? calibrationData.baseline * 1.5 // 50% above calibrated baseline
         : 0.8; // Default threshold
       
-      // Clean debug logging - only for strong breathing detection
-      const isStrongBreath = normalizedAmplitude > Math.max(inhaleThreshold, exhaleThreshold);
-      if (isStrongBreath && Math.random() < 0.1) { // Only 10% of strong breath detections
-        console.log(`🫁 BREATH: amp=${normalizedAmplitude.toFixed(1)} | centroid=${spectralCentroid.toFixed(0)} | envelope=${envelope.toFixed(2)}`);
-        console.log(`🔍 ENVELOPE DEBUG: min=${minSample}, max=${maxSample}, range=${maxSample-minSample}, envelope=${envelope.toFixed(3)}`);
+      // Debug logging for threshold analysis
+      if (Math.random() < 0.02) { // Log occasionally
+        console.log(`🔍 THRESHOLDS: inhale=${inhaleThreshold.toFixed(1)}, exhale=${exhaleThreshold.toFixed(1)}, strong=${Math.max(inhaleThreshold, exhaleThreshold).toFixed(1)}`);
+        console.log(`📊 CURRENT: amp=${normalizedAmplitude.toFixed(1)}, rolloff=${spectralRolloff.toFixed(0)}Hz, variance=${(amplitudeVariance*1000).toFixed(2)}`);
       }
 
       // SIMPLIFIED 4-STATE DETECTION: silence, inhale, exhale, noise
@@ -583,14 +699,12 @@ const PlayGameComponent = () => {
           medicalNote: `Environmental noise detected - too loud for breathing ${isUsingCalibration ? '(calibrated)' : '(default)'}`
         };
       } else if (normalizedAmplitude > strongBreathThreshold) {
-        // Strong breathing detected - classify as inhale or exhale
-        // Based on your data: exhales are typically 348-700, inhales are 700+
-        const isInhale = spectralCentroid >= 700; // Bright sound = inhale  
-        const isExhale = spectralCentroid < 700;  // Dark sound = exhale (more inclusive)
+        // Strong breathing detected - use advanced detection
+        const detectedType = detectBreathTypeAdvanced(spectralRolloff, amplitudeVariance, spectralCentroid);
         
-        console.log(`🔍 BREATH CLASSIFICATION: centroid=${spectralCentroid.toFixed(0)}, isInhale=${isInhale}, isExhale=${isExhale}, amp=${normalizedAmplitude.toFixed(1)}`);
+        console.log(`🔍 ENHANCED BREATH: rolloff=${spectralRolloff.toFixed(0)}Hz, variance=${(amplitudeVariance*1000).toFixed(2)}, type=${detectedType}, amp=${normalizedAmplitude.toFixed(1)}`);
         
-        if (isInhale) {
+        if (detectedType === 'inhale') {
           console.log(`✅ SETTING INHALE STATE`);
           confidence = Math.min(100, normalizedAmplitude * 40);
           newState = { 
@@ -599,9 +713,9 @@ const PlayGameComponent = () => {
             color: '#4488ff', 
             scale: 1.4,
             confidence: confidence,
-            medicalNote: `Inhale detected ${isUsingCalibration ? '(calibrated)' : '(default)'}`
+            medicalNote: `Inhale detected - Enhanced AI ${calibrationData?.spectralFeatures ? '(personalized)' : '(default)'}`
           };
-        } else if (isExhale) {
+        } else if (detectedType === 'exhale') {
           console.log(`✅ SETTING EXHALE STATE`);
           confidence = Math.min(100, normalizedAmplitude * 30);
           newState = { 
@@ -610,18 +724,18 @@ const PlayGameComponent = () => {
             color: '#ff6644', 
             scale: 0.7,
             confidence: confidence,
-            medicalNote: `Exhale detected ${isUsingCalibration ? '(calibrated)' : '(default)'}`
+            medicalNote: `Exhale detected - Enhanced AI ${calibrationData?.spectralFeatures ? '(personalized)' : '(default)'}`
           };
         } else {
-          // Ambiguous frequency - default to silence
+          // Unknown/ambiguous detection - default to silence
           confidence = Math.min(100, normalizedAmplitude * 15);
           newState = { 
             type: 'silence', 
-            label: '🤫 Quiet', 
+            label: '🤔 Unclear', 
             color: '#6366f1', // Nice indigo color instead of gray
             scale: 1.0,
             confidence: confidence,
-            medicalNote: `Ambiguous sound - defaulting to silence ${isUsingCalibration ? '(calibrated)' : '(default)'}`
+            medicalNote: `Unclear breath pattern - Enhanced AI ${calibrationData?.spectralFeatures ? '(personalized)' : '(default)'}`
           };
         }
       } else {
@@ -704,7 +818,8 @@ const PlayGameComponent = () => {
       padding: '2rem',
       borderRadius: '16px',
       border: '2px solid rgba(0, 255, 136, 0.3)',
-      marginBottom: '2rem'
+      marginBottom: '2rem',
+      position: 'relative'
     }}>
       <h2 style={{ color: '#00ff88', marginBottom: '1rem', textAlign: 'center' }}>
         🎮 Play Game
@@ -712,6 +827,63 @@ const PlayGameComponent = () => {
       <p style={{ textAlign: 'center', marginBottom: '2rem', color: '#ccc' }}>
         Control a game character with your breathing patterns
       </p>
+
+      {/* Calibration Recommendation Banner for Uncalibrated Users */}
+      {isClient && !isUsingCalibration && !isListening && (
+        <div style={{
+          marginBottom: '2rem',
+          padding: '1.5rem',
+          background: 'linear-gradient(135deg, rgba(255, 149, 0, 0.15), rgba(255, 179, 71, 0.15))',
+          border: '2px solid rgba(255, 149, 0, 0.4)',
+          borderRadius: '16px',
+          textAlign: 'center'
+        }}>
+          <div style={{
+            fontSize: '1.2rem',
+            fontWeight: 'bold',
+            color: '#ff9500',
+            marginBottom: '0.5rem'
+          }}>
+            🎯 Unlock Enhanced AI Detection
+          </div>
+          <p style={{
+            color: '#ccc',
+            marginBottom: '1rem',
+            lineHeight: '1.5'
+          }}>
+            You're using <strong style={{ color: '#ffaa00' }}>default breath detection</strong>. 
+            Complete the 30-second calibration to create a <strong style={{ color: '#00ff88' }}>personalized AI model</strong> that 
+            dramatically improves accuracy and gaming experience!
+          </p>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'center',
+            gap: '1rem',
+            flexWrap: 'wrap'
+          }}>
+            <div style={{
+              padding: '0.8rem 1rem',
+              background: 'rgba(255, 149, 0, 0.1)',
+              borderRadius: '8px',
+              border: '1px solid rgba(255, 149, 0, 0.3)',
+              fontSize: '0.9rem'
+            }}>
+              <div style={{ color: '#ff9500', fontWeight: 'bold' }}>Current: Default AI</div>
+              <div style={{ color: '#ccc' }}>Generic breath patterns</div>
+            </div>
+            <div style={{
+              padding: '0.8rem 1rem',
+              background: 'rgba(0, 255, 136, 0.1)',
+              borderRadius: '8px',
+              border: '1px solid rgba(0, 255, 136, 0.3)',
+              fontSize: '0.9rem'
+            }}>
+              <div style={{ color: '#00ff88', fontWeight: 'bold' }}>After Calibration: Enhanced AI</div>
+              <div style={{ color: '#ccc' }}>Your personal spectral signature</div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Silence Detection UI */}
       {isWaitingForSilence && (
@@ -901,12 +1073,12 @@ const PlayGameComponent = () => {
             }}></div>
           </div>
           
-          {/* Traditional metrics */}
+          {/* Enhanced Spectral Analysis Metrics */}
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
-            gap: '1rem',
-            fontSize: '0.9rem',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))',
+            gap: '0.8rem',
+            fontSize: '0.85rem',
             color: '#ccc',
             textAlign: 'center',
             paddingTop: '1rem',
@@ -917,17 +1089,23 @@ const PlayGameComponent = () => {
               <div>{audioData.amplitude.toFixed(1)}</div>
             </div>
             <div>
-              <div style={{ color: '#00ccff', fontWeight: 'bold' }}>Baseline</div>
-              <div>{audioData.baseline.toFixed(1)}</div>
+              <div style={{ color: '#ff9500', fontWeight: 'bold' }}>Rolloff</div>
+              <div>{audioFeatures.spectralRolloff.toFixed(0)}Hz</div>
             </div>
             <div>
-              <div style={{ color: '#ff8844', fontWeight: 'bold' }}>Relative</div>
-              <div>{audioData.relative.toFixed(1)}</div>
+              <div style={{ color: '#4488ff', fontWeight: 'bold' }}>Centroid</div>
+              <div>{audioFeatures.spectralCentroid.toFixed(0)}Hz</div>
             </div>
             <div>
-              <div style={{ color: isCalibrating ? '#ffaa00' : '#00ff88', fontWeight: 'bold' }}>Status</div>
-              <div style={{ color: isCalibrating ? '#ffaa00' : '#00ff88' }}>
-                {isCalibrating ? `Calibrating ${calibrationProgress}/60` : 'Ready to Play!'}
+              <div style={{ color: '#ff6444', fontWeight: 'bold' }}>Variance</div>
+              <div>{(audioFeatures.amplitudeVariance * 1000).toFixed(2)}</div>
+            </div>
+            <div>
+              <div style={{ color: calibrationData?.spectralFeatures ? '#00ff88' : '#ffaa00', fontWeight: 'bold' }}>
+                AI Mode
+              </div>
+              <div style={{ color: calibrationData?.spectralFeatures ? '#00ff88' : '#ffaa00' }}>
+                {calibrationData?.spectralFeatures ? '🧠 Personal' : '🎲 Default'}
               </div>
             </div>
           </div>
@@ -1062,15 +1240,18 @@ const PlayGameComponent = () => {
         }}>
           {isUsingCalibration ? (
             <>
-              🎯 Using Personal Calibration
+              {calibrationData?.spectralFeatures ? '🧠 Enhanced AI Calibration' : '🎯 Basic Personal Calibration'}
               {calibrationData && (
                 <div style={{ fontSize: '0.7rem', opacity: 0.8 }}>
-                  Calibrated {new Date(calibrationData.timestamp).toLocaleDateString()}
+                  {calibrationData.spectralFeatures ? 
+                    `Spectral analysis • ${new Date(calibrationData.timestamp).toLocaleDateString()}` :
+                    `Basic • ${new Date(calibrationData.timestamp).toLocaleDateString()}`
+                  }
                 </div>
               )}
             </>
           ) : (
-            <>🎲 Using Default Settings</>
+            <>🎲 Using Default AI Settings</>
           )}
         </div>
       </div>

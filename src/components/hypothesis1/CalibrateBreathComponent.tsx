@@ -8,6 +8,9 @@ interface AudioFeatures {
   lpcGain: number;
   breathingFreqPower: number;
   spectralCentroid: number;
+  spectralRolloff: number;
+  dominantFrequency: number;
+  amplitudeVariance: number;
 }
 
 interface CalibrationData {
@@ -20,6 +23,14 @@ interface CalibrationData {
     min: number;
     max: number;
     average: number;
+  };
+  // Enhanced spectral analysis calibration data
+  spectralFeatures: {
+    inhaleRolloffAvg: number;
+    exhaleRolloffAvg: number;
+    inhaleVarianceAvg: number;
+    exhaleVarianceAvg: number;
+    rolloffThreshold: number; // For real-time detection
   };
 }
 
@@ -74,6 +85,19 @@ const CalibrateBreathComponent = ({ onSwitchToPlay }: CalibrateBreathComponentPr
   const [recordedLevels, setRecordedLevels] = useState<number[]>([]);
   const [savedCalibration, setSavedCalibration] = useState<CalibrationData | null>(null);
   const [frequencyBands, setFrequencyBands] = useState<number[]>(new Array(8).fill(0));
+  
+  // Enhanced spectral analysis state
+  const [spectralFeatures, setSpectralFeatures] = useState<AudioFeatures>({
+    rms: 0,
+    envelope: 0,
+    lpcGain: 0,
+    breathingFreqPower: 0,
+    spectralCentroid: 0,
+    spectralRolloff: 0,
+    dominantFrequency: 0,
+    amplitudeVariance: 0
+  });
+  const [breathDetection, setBreathDetection] = useState<'inhale' | 'exhale' | 'unknown'>('unknown');
   const isExerciseRunningRef = useRef(false);
 
   // Refs for audio processing
@@ -89,6 +113,11 @@ const CalibrateBreathComponent = ({ onSwitchToPlay }: CalibrateBreathComponentPr
   const exerciseTimerRef = useRef<NodeJS.Timeout | null>(null);
   const currentPhaseRef = useRef<BoxBreathingPhase | null>(null);
   const recordedLevelsRef = useRef<number[]>([]);
+  
+  // Enhanced spectral analysis refs for calibration
+  const inhaleSpectralDataRef = useRef<{ rolloffs: number[], variances: number[] }>({ rolloffs: [], variances: [] });
+  const exhaleSpectralDataRef = useRef<{ rolloffs: number[], variances: number[] }>({ rolloffs: [], variances: [] });
+  const previousAmplitudeRef = useRef<number[]>([]);
 
   // Box breathing phases (inspired by breathe.html)
   const boxBreathingPhases: BoxBreathingPhase[] = [
@@ -97,6 +126,105 @@ const CalibrateBreathComponent = ({ onSwitchToPlay }: CalibrateBreathComponentPr
     { phase: 'exhale', duration: 4, scale: 0.75, text: 'Exhale', bgColor: '#FBCFE8' },
     { phase: 'hold2', duration: 4, scale: 0.75, text: 'Hold', bgColor: '#F9A8D4' }
   ];
+
+  // Enhanced spectral analysis functions (based on our research findings)
+  const calculateSpectralCentroid = (frequencyData: Uint8Array, sampleRate: number): number => {
+    if (frequencyData.length === 0) return 0;
+    let weightedSum = 0;
+    let magnitudeSum = 0;
+    
+    for (let i = 0; i < frequencyData.length; i++) {
+      const magnitude = frequencyData[i];
+      const frequency = (i * sampleRate) / (frequencyData.length * 2);
+      weightedSum += frequency * magnitude;
+      magnitudeSum += magnitude;
+    }
+    
+    return magnitudeSum > 0 ? weightedSum / magnitudeSum : 0;
+  };
+
+  const calculateSpectralRolloff = (frequencyData: Uint8Array, sampleRate: number, threshold: number = 0.85): number => {
+    const nyquist = sampleRate / 2;
+    const binCount = frequencyData.length;
+    
+    let totalEnergy = 0;
+    for (let i = 0; i < binCount; i++) {
+      const magnitude = frequencyData[i] / 255.0;
+      totalEnergy += magnitude * magnitude;
+    }
+    
+    let cumulativeEnergy = 0;
+    const targetEnergy = totalEnergy * threshold;
+    
+    for (let i = 0; i < binCount; i++) {
+      const magnitude = frequencyData[i] / 255.0;
+      cumulativeEnergy += magnitude * magnitude;
+      
+      if (cumulativeEnergy >= targetEnergy) {
+        return (i / binCount) * nyquist;
+      }
+    }
+    
+    return nyquist;
+  };
+
+  const calculateDominantFrequency = (frequencyData: Uint8Array, sampleRate: number): number => {
+    if (frequencyData.length === 0) return 0;
+    let maxMagnitude = 0;
+    let dominantBin = 0;
+    
+    for (let i = 0; i < frequencyData.length; i++) {
+      if (frequencyData[i] > maxMagnitude) {
+        maxMagnitude = frequencyData[i];
+        dominantBin = i;
+      }
+    }
+    
+    return (dominantBin * sampleRate) / (frequencyData.length * 2);
+  };
+
+  const calculateAmplitudeVariance = (timeDomain: Uint8Array): number => {
+    if (timeDomain.length === 0) return 0;
+    
+    // Calculate mean amplitude
+    let sum = 0;
+    for (let i = 0; i < timeDomain.length; i++) {
+      const sample = Math.abs((timeDomain[i] - 128) / 128.0);
+      sum += sample;
+    }
+    const mean = sum / timeDomain.length;
+    
+    // Calculate variance
+    let variance = 0;
+    for (let i = 0; i < timeDomain.length; i++) {
+      const sample = Math.abs((timeDomain[i] - 128) / 128.0);
+      variance += Math.pow(sample - mean, 2);
+    }
+    
+    return variance / timeDomain.length;
+  };
+
+  // Real-time breath detection based on our research
+  const detectBreathType = (rolloff: number, variance: number, savedCalibration?: CalibrationData): 'inhale' | 'exhale' | 'unknown' => {
+    if (!savedCalibration?.spectralFeatures) return 'unknown';
+    
+    const { rolloffThreshold, inhaleVarianceAvg, exhaleVarianceAvg } = savedCalibration.spectralFeatures;
+    
+    // Primary detection: rolloff threshold (our key finding!)
+    if (rolloff > rolloffThreshold) {
+      return 'inhale';
+    } else if (rolloff < rolloffThreshold * 0.7) {
+      return 'exhale';
+    }
+    
+    // Secondary detection: amplitude variance
+    const varianceThreshold = (inhaleVarianceAvg + exhaleVarianceAvg) / 2;
+    if (variance < varianceThreshold) {
+      return 'inhale'; // More steady breathing
+    } else {
+      return 'exhale'; // More variable breathing
+    }
+  };
 
   // Load saved calibration on mount
   useEffect(() => {
@@ -152,6 +280,11 @@ const CalibrateBreathComponent = ({ onSwitchToPlay }: CalibrateBreathComponentPr
       calibrationCountRef.current = 0;
       setRecordedLevels([]);
       recordedLevelsRef.current = [];
+      
+      // Reset spectral data collection
+      inhaleSpectralDataRef.current = { rolloffs: [], variances: [] };
+      exhaleSpectralDataRef.current = { rolloffs: [], variances: [] };
+      previousAmplitudeRef.current = [];
       
       setIsListening(true);
       isListeningRef.current = true;
@@ -286,6 +419,31 @@ const CalibrateBreathComponent = ({ onSwitchToPlay }: CalibrateBreathComponentPr
       const exhaleMax = sortedLevels[Math.floor(sortedLevels.length * 0.85)]; // 85th percentile
       const baseline = sortedLevels[Math.floor(sortedLevels.length * 0.1)]; // 10th percentile
       const average = recordedLevelsRef.current.reduce((sum, val) => sum + val, 0) / recordedLevelsRef.current.length;
+
+      // NEW: Calculate enhanced spectral features for calibration
+      const inhaleRolloffs = inhaleSpectralDataRef.current.rolloffs;
+      const exhaleRolloffs = exhaleSpectralDataRef.current.rolloffs;
+      const inhaleVariances = inhaleSpectralDataRef.current.variances;
+      const exhaleVariances = exhaleSpectralDataRef.current.variances;
+
+      const inhaleRolloffAvg = inhaleRolloffs.length > 0 ? 
+        inhaleRolloffs.reduce((sum, val) => sum + val, 0) / inhaleRolloffs.length : 5500;
+      const exhaleRolloffAvg = exhaleRolloffs.length > 0 ? 
+        exhaleRolloffs.reduce((sum, val) => sum + val, 0) / exhaleRolloffs.length : 2500;
+      const inhaleVarianceAvg = inhaleVariances.length > 0 ? 
+        inhaleVariances.reduce((sum, val) => sum + val, 0) / inhaleVariances.length : 0.0001;
+      const exhaleVarianceAvg = exhaleVariances.length > 0 ? 
+        exhaleVariances.reduce((sum, val) => sum + val, 0) / exhaleVariances.length : 0.0003;
+
+      // Key threshold: the cutoff between inhale and exhale rolloff frequencies
+      const rolloffThreshold = (inhaleRolloffAvg + exhaleRolloffAvg) / 2;
+
+      console.log(`📊 Spectral Analysis Results:
+        Inhale Rolloff Avg: ${inhaleRolloffAvg.toFixed(0)}Hz (${inhaleRolloffs.length} samples)
+        Exhale Rolloff Avg: ${exhaleRolloffAvg.toFixed(0)}Hz (${exhaleRolloffs.length} samples)
+        Rolloff Threshold: ${rolloffThreshold.toFixed(0)}Hz
+        Inhale Variance: ${inhaleVarianceAvg.toFixed(6)}
+        Exhale Variance: ${exhaleVarianceAvg.toFixed(6)}`);
       
       const calibrationData: CalibrationData = {
         inhaleMax,
@@ -297,6 +455,13 @@ const CalibrateBreathComponent = ({ onSwitchToPlay }: CalibrateBreathComponentPr
           min: Math.min(...recordedLevelsRef.current),
           max: Math.max(...recordedLevelsRef.current),
           average
+        },
+        spectralFeatures: {
+          inhaleRolloffAvg,
+          exhaleRolloffAvg,
+          inhaleVarianceAvg,
+          exhaleVarianceAvg,
+          rolloffThreshold
         }
       };
       
@@ -366,6 +531,12 @@ const CalibrateBreathComponent = ({ onSwitchToPlay }: CalibrateBreathComponentPr
     const binSize = sampleRate / (bufferLength * 2);
     const breathingBinStart = Math.floor(100 / binSize);
     const breathingBinEnd = Math.floor(1200 / binSize);
+
+    // NEW: Calculate enhanced spectral features
+    const spectralCentroid = calculateSpectralCentroid(freqArray, sampleRate);
+    const spectralRolloff = calculateSpectralRolloff(freqArray, sampleRate);
+    const dominantFrequency = calculateDominantFrequency(freqArray, sampleRate);
+    const amplitudeVariance = calculateAmplitudeVariance(dataArray);
     
     // Debug audio settings (log once per session)
     if (!window.audioDebugLogged) {
@@ -462,6 +633,23 @@ const CalibrateBreathComponent = ({ onSwitchToPlay }: CalibrateBreathComponentPr
       relative: rawAmplitude - baselineRef.current,
       levelPercent: levelPercent
     });
+
+    // Update spectral features state
+    const currentSpectralFeatures: AudioFeatures = {
+      rms,
+      envelope,
+      lpcGain: 0, // Simplified for now
+      breathingFreqPower,
+      spectralCentroid,
+      spectralRolloff,
+      dominantFrequency,
+      amplitudeVariance
+    };
+    setSpectralFeatures(currentSpectralFeatures);
+
+    // Real-time breath detection (if calibration exists)
+    const detectedBreathType = detectBreathType(spectralRolloff, amplitudeVariance, savedCalibration || undefined);
+    setBreathDetection(detectedBreathType);
     
     // Record levels during the exercise for calibration - ONLY during inhale/exhale, NOT during hold
     const currentPhaseValue = currentPhaseRef.current;
@@ -469,10 +657,19 @@ const CalibrateBreathComponent = ({ onSwitchToPlay }: CalibrateBreathComponentPr
       // Update both state and ref
       setRecordedLevels(prev => [...prev, rawAmplitude]);
       recordedLevelsRef.current.push(rawAmplitude);
+
+      // NEW: Collect spectral data by phase for enhanced calibration
+      if (currentPhaseValue.phase === 'inhale') {
+        inhaleSpectralDataRef.current.rolloffs.push(spectralRolloff);
+        inhaleSpectralDataRef.current.variances.push(amplitudeVariance);
+      } else if (currentPhaseValue.phase === 'exhale') {
+        exhaleSpectralDataRef.current.rolloffs.push(spectralRolloff);
+        exhaleSpectralDataRef.current.variances.push(amplitudeVariance);
+      }
       
       // Debug every 30 samples using ref for accurate count
       if (recordedLevelsRef.current.length % 30 === 0) {
-        console.log(`🎤 Recording audio: ${recordedLevelsRef.current.length} samples, latest: ${rawAmplitude.toFixed(2)}, phase: ${currentPhaseValue.phase}`);
+        console.log(`🎤 Recording: ${recordedLevelsRef.current.length} samples, rolloff: ${spectralRolloff.toFixed(0)}Hz, phase: ${currentPhaseValue.phase}`);
       }
     } else if (isExerciseRunningRef.current && currentPhaseValue && (currentPhaseValue.phase === 'hold1' || currentPhaseValue.phase === 'hold2')) {
       // Debug: Should NOT be recording during hold phases (limit to every 60 frames)
@@ -930,6 +1127,52 @@ const CalibrateBreathComponent = ({ onSwitchToPlay }: CalibrateBreathComponentPr
               </div>
             </div>
             
+            {/* Real-time Breath Detection Display */}
+            <div style={{
+              marginTop: '1rem',
+              padding: '1rem',
+              background: 'rgba(0, 0, 0, 0.4)',
+              borderRadius: '8px',
+              border: '1px solid rgba(255, 255, 255, 0.1)'
+            }}>
+              <div style={{
+                color: '#00ff88',
+                fontWeight: 'bold',
+                fontSize: '0.9rem',
+                marginBottom: '0.5rem',
+                textAlign: 'center'
+              }}>
+                🧠 AI Breath Detection
+              </div>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(3, 1fr)',
+                gap: '0.5rem',
+                fontSize: '0.8rem',
+                textAlign: 'center'
+              }}>
+                <div>
+                  <div style={{ color: '#4488ff', fontWeight: 'bold' }}>Detection</div>
+                  <div style={{ 
+                    color: breathDetection === 'inhale' ? '#00ff88' : 
+                           breathDetection === 'exhale' ? '#ff8844' : '#888',
+                    fontWeight: 'bold',
+                    textTransform: 'uppercase'
+                  }}>
+                    {breathDetection}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ color: '#ff9500', fontWeight: 'bold' }}>Rolloff</div>
+                  <div>{spectralFeatures.spectralRolloff.toFixed(0)}Hz</div>
+                </div>
+                <div>
+                  <div style={{ color: '#ff6444', fontWeight: 'bold' }}>Variance</div>
+                  <div>{(spectralFeatures.amplitudeVariance * 1000).toFixed(2)}</div>
+                </div>
+              </div>
+            </div>
+
             {/* 8-Band Frequency Visualization */}
             <div style={{
               marginTop: '1rem',
@@ -1128,6 +1371,53 @@ const CalibrateBreathComponent = ({ onSwitchToPlay }: CalibrateBreathComponentPr
                 {savedCalibration.dataPoints}
               </div>
             </div>
+            
+            {/* Enhanced Spectral Analysis Results */}
+            {savedCalibration.spectralFeatures && (
+              <>
+                <div style={{
+                  padding: '1rem',
+                  background: 'rgba(0, 255, 136, 0.1)',
+                  borderRadius: '8px',
+                  border: '1px solid rgba(0, 255, 136, 0.3)'
+                }}>
+                  <div style={{ color: '#00ff88', fontWeight: 'bold', fontSize: '0.9rem' }}>
+                    🎯 INHALE ROLLOFF
+                  </div>
+                  <div style={{ color: '#fff', fontSize: '1.5rem', fontWeight: 'bold' }}>
+                    {savedCalibration.spectralFeatures.inhaleRolloffAvg.toFixed(0)}Hz
+                  </div>
+                </div>
+                
+                <div style={{
+                  padding: '1rem',
+                  background: 'rgba(255, 100, 100, 0.1)',
+                  borderRadius: '8px',
+                  border: '1px solid rgba(255, 100, 100, 0.3)'
+                }}>
+                  <div style={{ color: '#ff6444', fontWeight: 'bold', fontSize: '0.9rem' }}>
+                    🌊 EXHALE ROLLOFF
+                  </div>
+                  <div style={{ color: '#fff', fontSize: '1.5rem', fontWeight: 'bold' }}>
+                    {savedCalibration.spectralFeatures.exhaleRolloffAvg.toFixed(0)}Hz
+                  </div>
+                </div>
+                
+                <div style={{
+                  padding: '1rem',
+                  background: 'rgba(123, 104, 238, 0.1)',
+                  borderRadius: '8px',
+                  border: '1px solid rgba(123, 104, 238, 0.3)'
+                }}>
+                  <div style={{ color: '#7b68ee', fontWeight: 'bold', fontSize: '0.9rem' }}>
+                    ⚡ THRESHOLD
+                  </div>
+                  <div style={{ color: '#fff', fontSize: '1.5rem', fontWeight: 'bold' }}>
+                    {savedCalibration.spectralFeatures.rolloffThreshold.toFixed(0)}Hz
+                  </div>
+                </div>
+              </>
+            )}
           </div>
           )}
           
