@@ -271,6 +271,7 @@ export default function AudioToolsPage() {
           ]}
           audioStream={audioStreamRef.current || undefined}
           expansionStates={getExpansionStates()}
+          audioData={audioData}
         />
       )}
 

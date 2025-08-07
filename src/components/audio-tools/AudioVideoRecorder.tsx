@@ -7,6 +7,12 @@ interface AudioVideoRecorderProps {
   canvasRefs: any[];
   audioStream?: MediaStream;
   expansionStates?: { frequencyBand: boolean; lpcAnalysis: boolean }; // Track expansion states
+  audioData?: {
+    timeDomain: Uint8Array;
+    frequencyDomain: Uint8Array;
+    sampleRate: number;
+    bufferSize: number;
+  };
 }
 
 interface CanvasSelection {
@@ -16,9 +22,21 @@ interface CanvasSelection {
   selected: boolean;
 }
 
-export function AudioVideoRecorder({ isListening, canvasRefs, audioStream, expansionStates }: AudioVideoRecorderProps) {
+interface DataSample {
+  timestamp: number;
+  spectralCentroid: number;
+  spectralRolloff: number;
+  spectralFlux: number;
+  spectralSpread: number;
+  amplitudeLevel: number;
+  amplitudeVariance: number;
+  dominantFrequency: number;
+}
+
+export function AudioVideoRecorder({ isListening, canvasRefs, audioStream, expansionStates, audioData }: AudioVideoRecorderProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [recordedChunks, setRecordedChunks] = useState<Blob[]>([]);
+  const [collectedData, setCollectedData] = useState<DataSample[]>([]);
   // Initialize selection based on expansion states
   const getInitialSelection = () => {
     return [
@@ -81,10 +99,144 @@ export function AudioVideoRecorder({ isListening, canvasRefs, audioStream, expan
     }
   }, [selectedCanvases]);
 
+  // Data collection effect - this will use fresh audioData
+  useEffect(() => {
+    if (isCollectingDataRef.current && audioData && audioData.frequencyDomain.length > 0) {
+      const now = Date.now();
+      
+      // Rate limit to 100ms intervals (10 samples per second)
+      if (now - lastDataCollectionRef.current < 100) {
+        return;
+      }
+      
+      lastDataCollectionRef.current = now;
+      const timestamp = now - recordingStartTimeRef.current;
+      
+      const sample: DataSample = {
+        timestamp,
+        spectralCentroid: calculateSpectralCentroid(audioData.frequencyDomain, audioData.sampleRate),
+        spectralRolloff: calculateSpectralRolloff(audioData.frequencyDomain, audioData.sampleRate),
+        spectralFlux: 0,
+        spectralSpread: 0,
+        amplitudeLevel: calculateAmplitudeLevel(audioData.timeDomain),
+        amplitudeVariance: calculateAmplitudeVariance(audioData.timeDomain),
+        dominantFrequency: calculateDominantFrequency(audioData.frequencyDomain, audioData.sampleRate)
+      };
+      
+      console.log('Fresh data sample:', sample); // Debug log
+      setCollectedData(prev => [...prev, sample]);
+    }
+  }, [audioData]); // This will trigger every time audioData updates!
+
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedStreamRef = useRef<MediaStream | null>(null);
   const renderingRef = useRef<boolean>(false);
   const animationFrameRef = useRef<number | null>(null);
+  const dataCollectionIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const recordingStartTimeRef = useRef<number>(0);
+  const isCollectingDataRef = useRef<boolean>(false);
+  const lastDataCollectionRef = useRef<number>(0);
+
+  // Helper functions for data analysis
+  const calculateSpectralCentroid = (frequencyData: Uint8Array, sampleRate: number): number => {
+    if (frequencyData.length === 0) return 0;
+    let weightedSum = 0;
+    let magnitudeSum = 0;
+    
+    for (let i = 0; i < frequencyData.length; i++) {
+      const magnitude = frequencyData[i];
+      const frequency = (i * sampleRate) / (frequencyData.length * 2);
+      weightedSum += frequency * magnitude;
+      magnitudeSum += magnitude;
+    }
+    
+    return magnitudeSum > 0 ? weightedSum / magnitudeSum : 0;
+  };
+
+  const calculateSpectralRolloff = (frequencyData: Uint8Array, sampleRate: number, threshold: number = 0.85): number => {
+    const nyquist = sampleRate / 2;
+    const binCount = frequencyData.length;
+    
+    let totalEnergy = 0;
+    for (let i = 0; i < binCount; i++) {
+      const magnitude = frequencyData[i] / 255.0;
+      totalEnergy += magnitude * magnitude;
+    }
+    
+    let cumulativeEnergy = 0;
+    const targetEnergy = totalEnergy * threshold;
+    
+    for (let i = 0; i < binCount; i++) {
+      const magnitude = frequencyData[i] / 255.0;
+      cumulativeEnergy += magnitude * magnitude;
+      
+      if (cumulativeEnergy >= targetEnergy) {
+        return (i / binCount) * nyquist;
+      }
+    }
+    
+    return nyquist;
+  };
+
+  const calculateAmplitudeLevel = (timeDomain: Uint8Array): number => {
+    if (timeDomain.length === 0) return 0;
+    let sum = 0;
+    for (let i = 0; i < timeDomain.length; i++) {
+      const sample = (timeDomain[i] - 128) / 128.0;
+      sum += Math.abs(sample);
+    }
+    return sum / timeDomain.length;
+  };
+
+  const calculateAmplitudeVariance = (timeDomain: Uint8Array): number => {
+    if (timeDomain.length === 0) return 0;
+    const mean = calculateAmplitudeLevel(timeDomain);
+    let variance = 0;
+    for (let i = 0; i < timeDomain.length; i++) {
+      const sample = Math.abs((timeDomain[i] - 128) / 128.0);
+      variance += Math.pow(sample - mean, 2);
+    }
+    return variance / timeDomain.length;
+  };
+
+  const calculateDominantFrequency = (frequencyData: Uint8Array, sampleRate: number): number => {
+    if (frequencyData.length === 0) return 0;
+    let maxMagnitude = 0;
+    let dominantBin = 0;
+    
+    for (let i = 0; i < frequencyData.length; i++) {
+      if (frequencyData[i] > maxMagnitude) {
+        maxMagnitude = frequencyData[i];
+        dominantBin = i;
+      }
+    }
+    
+    return (dominantBin * sampleRate) / (frequencyData.length * 2);
+  };
+
+  const collectDataSample = (): DataSample | null => {
+    if (!audioData || audioData.frequencyDomain.length === 0) return null;
+    
+    const timestamp = Date.now() - recordingStartTimeRef.current;
+    
+    // Add debug logging to see if data is changing
+    console.log('Collecting sample:', {
+      frequencyDataSum: audioData.frequencyDomain.reduce((sum, val) => sum + val, 0),
+      timeDomainSum: audioData.timeDomain.reduce((sum, val) => sum + val, 0),
+      sampleRate: audioData.sampleRate
+    });
+    
+    return {
+      timestamp,
+      spectralCentroid: calculateSpectralCentroid(audioData.frequencyDomain, audioData.sampleRate),
+      spectralRolloff: calculateSpectralRolloff(audioData.frequencyDomain, audioData.sampleRate),
+      spectralFlux: 0, // Complex to calculate, could add later
+      spectralSpread: 0, // Complex to calculate, could add later  
+      amplitudeLevel: calculateAmplitudeLevel(audioData.timeDomain),
+      amplitudeVariance: calculateAmplitudeVariance(audioData.timeDomain),
+      dominantFrequency: calculateDominantFrequency(audioData.frequencyDomain, audioData.sampleRate)
+    };
+  };
 
   // Smart layout calculation
   const calculateLayout = (selectedCount: number) => {
@@ -171,6 +323,11 @@ export function AudioVideoRecorder({ isListening, canvasRefs, audioStream, expan
       mediaRecorder.start(1000); // Request data every second
       setIsRecording(true);
       renderingRef.current = true;
+      
+      // Start data collection
+      recordingStartTimeRef.current = Date.now();
+      setCollectedData([]); // Clear previous data
+      isCollectingDataRef.current = true; // Enable data collection via useEffect
 
       // Composite rendering loop
       const renderComposite = () => {
@@ -242,6 +399,9 @@ export function AudioVideoRecorder({ isListening, canvasRefs, audioStream, expan
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
       
+      // Stop data collection
+      isCollectingDataRef.current = false;
+      
       // Stop the canvas stream for recording, but keep visualizations running
       if (recordedStreamRef.current) {
         // Only stop the video tracks (canvas capture), keep audio flowing for visualizations
@@ -283,6 +443,40 @@ export function AudioVideoRecorder({ isListening, canvasRefs, audioStream, expan
       alert('Failed to download recording: ' + (error as Error).message);
     }
   }, [recordedChunks]);
+
+  const downloadData = useCallback(() => {
+    if (collectedData.length === 0) {
+      alert('No data collected. Please record some audio first.');
+      return;
+    }
+
+    // Create CSV content
+    const headers = ['timestamp_ms', 'spectral_centroid_hz', 'spectral_rolloff_hz', 'amplitude_level', 'amplitude_variance', 'dominant_frequency_hz'];
+    const csvContent = [
+      headers.join(','),
+      ...collectedData.map(sample => [
+        sample.timestamp,
+        sample.spectralCentroid.toFixed(2),
+        sample.spectralRolloff.toFixed(2),
+        sample.amplitudeLevel.toFixed(4),
+        sample.amplitudeVariance.toFixed(4),
+        sample.dominantFrequency.toFixed(2)
+      ].join(','))
+    ].join('\n');
+
+    // Download CSV
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    
+    a.href = url;
+    a.download = `breathquest-data-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    
+    URL.revokeObjectURL(url);
+  }, [collectedData]);
 
 
 
@@ -370,7 +564,7 @@ export function AudioVideoRecorder({ isListening, canvasRefs, audioStream, expan
           {isRecording ? '⏹️ Stop Recording' : '🎥 Start Recording'}
         </button>
 
-                      {recordedChunks.length > 0 && (
+        {recordedChunks.length > 0 && (
           <button
             onClick={downloadRecording}
             style={{
@@ -385,6 +579,24 @@ export function AudioVideoRecorder({ isListening, canvasRefs, audioStream, expan
             }}
           >
             💾 Download Video
+          </button>
+        )}
+
+        {collectedData.length > 0 && (
+          <button
+            onClick={downloadData}
+            style={{
+              padding: '0.75rem 1.5rem',
+              borderRadius: '8px',
+              border: '2px solid #4488ff',
+              background: 'rgba(68, 136, 255, 0.1)',
+              color: '#4488ff',
+              cursor: 'pointer',
+              fontSize: '1rem',
+              fontWeight: 'bold'
+            }}
+          >
+            📊 Download Data ({collectedData.length} samples)
           </button>
         )}
 
