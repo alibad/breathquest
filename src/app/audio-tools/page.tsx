@@ -33,8 +33,15 @@ export default function AudioToolsPage() {
   const frequencyDomainCanvasRef = useRef<HTMLCanvasElement>(null);
   const amplitudeEnvelopeCanvasRef = useRef<HTMLCanvasElement>(null);
   const frequencyBandCanvasRef = useRef<HTMLCanvasElement>(null);
-
   const lpcAnalysisCanvasRef = useRef<HTMLCanvasElement>(null);
+
+  // Additional canvas refs for frequency domain modes
+  const spectrumCanvasRef = useRef<HTMLCanvasElement>(null);
+  const centroidCanvasRef = useRef<HTMLCanvasElement>(null);
+  const rolloffCanvasRef = useRef<HTMLCanvasElement>(null);
+  const fluxCanvasRef = useRef<HTMLCanvasElement>(null);
+  const spreadCanvasRef = useRef<HTMLCanvasElement>(null);
+  const skewnessCanvasRef = useRef<HTMLCanvasElement>(null);
 
   // Function to get expansion states from localStorage
   const getExpansionStates = () => {
@@ -250,7 +257,18 @@ export default function AudioToolsPage() {
       {isListening && (
         <AudioVideoRecorder 
           isListening={isListening}
-          canvasRefs={[timeDomainCanvasRef, amplitudeEnvelopeCanvasRef, frequencyDomainCanvasRef, frequencyBandCanvasRef, lpcAnalysisCanvasRef]}
+          canvasRefs={[
+            timeDomainCanvasRef, 
+            amplitudeEnvelopeCanvasRef, 
+            spectrumCanvasRef,      // index 2
+            centroidCanvasRef,      // index 3  
+            rolloffCanvasRef,       // index 4
+            fluxCanvasRef,          // index 5
+            spreadCanvasRef,        // index 6
+            skewnessCanvasRef,      // index 7
+            frequencyBandCanvasRef, // index 8
+            lpcAnalysisCanvasRef    // index 9
+          ]}
           audioStream={audioStreamRef.current || undefined}
           expansionStates={getExpansionStates()}
         />
@@ -264,7 +282,16 @@ export default function AudioToolsPage() {
         }}>
           <TimeDomainTool audioData={audioData} canvasRef={timeDomainCanvasRef} />
           <AmplitudeEnvelopeTool audioData={audioData} canvasRef={amplitudeEnvelopeCanvasRef} />
-          <FrequencyDomainTool audioData={audioData} canvasRef={frequencyDomainCanvasRef} />
+          <FrequencyDomainTool 
+            audioData={audioData} 
+            canvasRef={frequencyDomainCanvasRef}
+            spectrumCanvasRef={spectrumCanvasRef}
+            centroidCanvasRef={centroidCanvasRef}
+            rolloffCanvasRef={rolloffCanvasRef}
+            fluxCanvasRef={fluxCanvasRef}
+            spreadCanvasRef={spreadCanvasRef}
+            skewnessCanvasRef={skewnessCanvasRef}
+          />
           <FrequencyBandTool audioData={audioData} canvasRef={frequencyBandCanvasRef} />
 
           <LPCAnalysisTool audioData={audioData} canvasRef={lpcAnalysisCanvasRef} />

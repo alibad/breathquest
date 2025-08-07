@@ -12,6 +12,13 @@ interface FrequencyDomainToolProps {
     bufferSize: number;
   };
   canvasRef?: any;
+  // Additional canvas refs for recording different modes
+  spectrumCanvasRef?: any;
+  centroidCanvasRef?: any;
+  rolloffCanvasRef?: any;
+  fluxCanvasRef?: any;
+  spreadCanvasRef?: any;
+  skewnessCanvasRef?: any;
 }
 
 interface SpectralFeatures {
@@ -21,7 +28,16 @@ interface SpectralFeatures {
   skewness: number;
 }
 
-export function FrequencyDomainTool({ audioData, canvasRef }: FrequencyDomainToolProps) {
+export function FrequencyDomainTool({ 
+  audioData, 
+  canvasRef, 
+  spectrumCanvasRef, 
+  centroidCanvasRef, 
+  rolloffCanvasRef, 
+  fluxCanvasRef, 
+  spreadCanvasRef, 
+  skewnessCanvasRef 
+}: FrequencyDomainToolProps) {
   const [showSpectralCentroid, setShowSpectralCentroid] = useState(true);
   const [analysisMode, setAnalysisMode] = useState<'spectrum' | 'centroid' | 'rolloff' | 'flux' | 'spread' | 'skewness'>('centroid');
   const [spectralFeatures, setSpectralFeatures] = useState<SpectralFeatures>({
@@ -260,6 +276,69 @@ export function FrequencyDomainTool({ audioData, canvasRef }: FrequencyDomainToo
             canvasRef={canvasRef}
           />
         )}
+      </div>
+
+      {/* Hidden canvases for recording different modes */}
+      <div style={{ position: 'absolute', left: '-9999px', width: '800px', height: '400px' }}>
+        {/* Spectrum Mode */}
+        <FrequencyDomainVisualizer 
+          data={audioData.frequencyDomain} 
+          sampleRate={audioData.sampleRate}
+          bufferSize={audioData.bufferSize}
+          showSpectralCentroid={showSpectralCentroid}
+          spectralCentroid={spectralCentroid}
+          analysisMode="spectrum"
+          spectralFeatures={spectralFeatures}
+          canvasRef={spectrumCanvasRef}
+        />
+        
+        {/* Centroid Mode */}
+        <FrequencyDomainVisualizer 
+          data={audioData.frequencyDomain} 
+          sampleRate={audioData.sampleRate}
+          bufferSize={audioData.bufferSize}
+          showSpectralCentroid={showSpectralCentroid}
+          spectralCentroid={spectralCentroid}
+          analysisMode="centroid"
+          spectralFeatures={spectralFeatures}
+          canvasRef={centroidCanvasRef}
+        />
+        
+        {/* Rolloff Mode */}
+        <AdvancedSpectralVisualizer 
+          data={audioData.frequencyDomain}
+          sampleRate={audioData.sampleRate}
+          spectralFeatures={spectralFeatures}
+          showFeature="rolloff"
+          canvasRef={rolloffCanvasRef}
+        />
+        
+        {/* Flux Mode */}
+        <AdvancedSpectralVisualizer 
+          data={audioData.frequencyDomain}
+          sampleRate={audioData.sampleRate}
+          spectralFeatures={spectralFeatures}
+          showFeature="flux"
+          canvasRef={fluxCanvasRef}
+        />
+        
+        {/* Spread Mode */}
+        <AdvancedSpectralVisualizer 
+          data={audioData.frequencyDomain}
+          sampleRate={audioData.sampleRate}
+          spectralFeatures={spectralFeatures}
+          showFeature="spread"
+          canvasRef={spreadCanvasRef}
+        />
+        
+        {/* Skewness Mode */}
+        <AdvancedSpectralVisualizer 
+          data={audioData.frequencyDomain}
+          sampleRate={audioData.sampleRate}
+          spectralFeatures={spectralFeatures}
+          showFeature="skewness"
+          canvasRef={skewnessCanvasRef}
+        />
       </div>
 
       <div style={{

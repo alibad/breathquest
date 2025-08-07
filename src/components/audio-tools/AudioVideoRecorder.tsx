@@ -24,13 +24,37 @@ export function AudioVideoRecorder({ isListening, canvasRefs, audioStream, expan
     return [
       { index: 0, label: 'Time Domain Analysis', color: '#00ff88', selected: true },
       { index: 1, label: 'Amplitude Envelope Analysis', color: '#ff8844', selected: true },
-      { index: 2, label: 'Frequency Domain Analysis', color: '#4488ff', selected: true },
-      { index: 3, label: 'Multi-Band Frequency Analysis', color: '#8b5cf6', selected: expansionStates?.frequencyBand ?? false },
-      { index: 4, label: 'LPC Analysis', color: '#ffa500', selected: expansionStates?.lpcAnalysis ?? false }
+      { index: 2, label: 'Freq Domain: Spectrum', color: '#4488ff', selected: true },
+      { index: 3, label: 'Freq Domain: Centroid', color: '#ff4488', selected: false },
+      { index: 4, label: 'Freq Domain: Rolloff', color: '#9333ea', selected: false },
+      { index: 5, label: 'Freq Domain: Flux', color: '#06b6d4', selected: false },
+      { index: 6, label: 'Freq Domain: Spread', color: '#10b981', selected: false },
+      { index: 7, label: 'Freq Domain: Skewness', color: '#f59e0b', selected: false },
+      { index: 8, label: 'Multi-Band Frequency Analysis', color: '#8b5cf6', selected: expansionStates?.frequencyBand ?? false },
+      { index: 9, label: 'LPC Analysis', color: '#ffa500', selected: expansionStates?.lpcAnalysis ?? false }
     ];
   };
 
-  const [selectedCanvases, setSelectedCanvases] = useState<CanvasSelection[]>(getInitialSelection());
+  // Load recording config from localStorage
+  const [selectedCanvases, setSelectedCanvases] = useState<CanvasSelection[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('audioRecorder-canvasSelection');
+      if (saved) {
+        try {
+          const savedSelection = JSON.parse(saved);
+          // Merge saved selections with current initial selection to handle new options
+          const initial = getInitialSelection();
+          return initial.map(item => {
+            const savedItem = savedSelection.find((s: any) => s.label === item.label);
+            return savedItem ? { ...item, selected: savedItem.selected } : item;
+          });
+        } catch (e) {
+          console.warn('Failed to parse saved canvas selection:', e);
+        }
+      }
+    }
+    return getInitialSelection();
+  });
   const [showConfig, setShowConfig] = useState(false);
 
   // Update selection when expansion states change (only on mount or major changes)
@@ -49,6 +73,14 @@ export function AudioVideoRecorder({ isListening, canvasRefs, audioStream, expan
       });
     });
   }, []); // Only run on mount, don't react to expansionStates changes
+
+  // Save canvas selection to localStorage when it changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('audioRecorder-canvasSelection', JSON.stringify(selectedCanvases));
+    }
+  }, [selectedCanvases]);
+
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedStreamRef = useRef<MediaStream | null>(null);
   const renderingRef = useRef<boolean>(false);
@@ -169,6 +201,7 @@ export function AudioVideoRecorder({ isListening, canvasRefs, audioStream, expan
         
         // Render each selected canvas
         selectedItems.forEach((item, itemIndex) => {
+          // Canvas indices now map directly to the new canvasRefs array
           const canvasRef = canvasRefs[item.index];
           const canvas = canvasRef?.current;
           if (canvas) {
