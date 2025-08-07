@@ -162,13 +162,12 @@ export function FrequencyDomainTool({
     return totalMagnitude > 0 ? weightedSkewness / totalMagnitude : 0;
   };
 
-  // Calculate basic metrics
-  const spectralCentroid = calculateSpectralCentroid(audioData.frequencyDomain, audioData.sampleRate);
-  const dominantFreq = calculateDominantFrequency(audioData.frequencyDomain, audioData.sampleRate);
-
   // Calculate advanced spectral features when frequency data changes
   useEffect(() => {
     if (audioData.frequencyDomain.length > 0) {
+      // Calculate spectral centroid inside useEffect to avoid infinite loop
+      const spectralCentroid = calculateSpectralCentroid(audioData.frequencyDomain, audioData.sampleRate);
+      
       // Convert to Float32Array for consistency
       const currentSpectrum = new Float32Array(audioData.frequencyDomain.length);
       for (let i = 0; i < audioData.frequencyDomain.length; i++) {
@@ -190,7 +189,11 @@ export function FrequencyDomainTool({
       // Store current spectrum for next flux calculation
       previousSpectrumRef.current = currentSpectrum;
     }
-  }, [audioData.frequencyDomain, audioData.sampleRate, spectralCentroid]);
+  }, [audioData.frequencyDomain, audioData.sampleRate]);
+
+  // Calculate basic metrics for display (outside useEffect to avoid stale closures)
+  const spectralCentroid = calculateSpectralCentroid(audioData.frequencyDomain, audioData.sampleRate);
+  const dominantFreq = calculateDominantFrequency(audioData.frequencyDomain, audioData.sampleRate);
 
   return (
     <div style={{
