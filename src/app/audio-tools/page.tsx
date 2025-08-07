@@ -5,7 +5,8 @@ import { TimeDomainTool } from '@/components/audio-tools/TimeDomainTool';
 import { FrequencyDomainTool } from '@/components/audio-tools/FrequencyDomainTool';
 import { AmplitudeEnvelopeTool } from '@/components/audio-tools/AmplitudeEnvelopeTool';
 import { FrequencyBandTool } from '@/components/audio-tools/FrequencyBandTool';
-import { AdvancedSpectralTool } from '@/components/audio-tools/AdvancedSpectralTool';
+
+import { LPCAnalysisTool } from '@/components/audio-tools/LPCAnalysisTool';
 
 import { AudioConfigurationPanel } from '@/components/audio-tools/AudioConfigurationPanel';
 import { AudioVideoRecorder } from '@/components/audio-tools/AudioVideoRecorder';
@@ -32,7 +33,8 @@ export default function AudioToolsPage() {
   const frequencyDomainCanvasRef = useRef<HTMLCanvasElement>(null);
   const amplitudeEnvelopeCanvasRef = useRef<HTMLCanvasElement>(null);
   const frequencyBandCanvasRef = useRef<HTMLCanvasElement>(null);
-  const advancedSpectralCanvasRef = useRef<HTMLCanvasElement>(null);
+
+  const lpcAnalysisCanvasRef = useRef<HTMLCanvasElement>(null);
 
 
   const startAudioCapture = async () => {
@@ -98,36 +100,60 @@ export default function AudioToolsPage() {
 
 
 
-  // Start processing when listening begins
+  // Start/stop processing when listening state changes
   useEffect(() => {
-    if (isListening && analyserRef.current && audioContextRef.current) {
-      const startProcessing = () => {
-        if (!analyserRef.current || !audioContextRef.current) return;
-        
-        const bufferLength = analyserRef.current.fftSize;
-        const timeDomainData = new Uint8Array(bufferLength);
-        const frequencyData = new Uint8Array(analyserRef.current.frequencyBinCount);
-        
-        // Get both time and frequency domain data
-        analyserRef.current.getByteTimeDomainData(timeDomainData);
-        analyserRef.current.getByteFrequencyData(frequencyData);
-        
-        // Update state
-        setAudioData({
-          timeDomain: timeDomainData,
-          frequencyDomain: frequencyData,
-          sampleRate: audioContextRef.current.sampleRate,
-          bufferSize: bufferLength
-        });
-        
-        // Continue processing
-        if (isListeningRef.current) {
-          animationRef.current = requestAnimationFrame(startProcessing);
-        }
-      };
-      
-      startProcessing();
+    if (!isListening) {
+      // Stop processing
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+        animationRef.current = null;
+      }
+      return;
     }
+
+    if (!analyserRef.current || !audioContextRef.current) return;
+
+    // Start processing with a local function that doesn't cause re-renders
+    let shouldContinue = true;
+    
+    const processAudio = () => {
+      if (!shouldContinue || !isListeningRef.current || !analyserRef.current || !audioContextRef.current) {
+        return;
+      }
+      
+      const bufferLength = analyserRef.current.fftSize;
+      const timeDomainData = new Uint8Array(bufferLength);
+      const frequencyData = new Uint8Array(analyserRef.current.frequencyBinCount);
+      
+      // Get both time and frequency domain data
+      analyserRef.current.getByteTimeDomainData(timeDomainData);
+      analyserRef.current.getByteFrequencyData(frequencyData);
+      
+      // Update state
+      setAudioData({
+        timeDomain: timeDomainData,
+        frequencyDomain: frequencyData,
+        sampleRate: audioContextRef.current.sampleRate,
+        bufferSize: bufferLength
+      });
+      
+      // Continue processing
+      if (shouldContinue && isListeningRef.current) {
+        animationRef.current = requestAnimationFrame(processAudio);
+      }
+    };
+
+    // Start the processing loop
+    processAudio();
+
+    // Cleanup function
+    return () => {
+      shouldContinue = false;
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+        animationRef.current = null;
+      }
+    };
   }, [isListening]);
 
   // Cleanup on unmount
@@ -211,7 +237,7 @@ export default function AudioToolsPage() {
       {isListening && (
         <AudioVideoRecorder 
           isListening={isListening}
-          canvasRefs={[timeDomainCanvasRef, amplitudeEnvelopeCanvasRef, frequencyDomainCanvasRef, frequencyBandCanvasRef, advancedSpectralCanvasRef]}
+          canvasRefs={[timeDomainCanvasRef, amplitudeEnvelopeCanvasRef, frequencyDomainCanvasRef, frequencyBandCanvasRef, lpcAnalysisCanvasRef]}
           audioStream={audioStreamRef.current || undefined}
         />
       )}
@@ -226,7 +252,8 @@ export default function AudioToolsPage() {
           <AmplitudeEnvelopeTool audioData={audioData} canvasRef={amplitudeEnvelopeCanvasRef} />
           <FrequencyDomainTool audioData={audioData} canvasRef={frequencyDomainCanvasRef} />
           <FrequencyBandTool audioData={audioData} canvasRef={frequencyBandCanvasRef} />
-          <AdvancedSpectralTool audioData={audioData} canvasRef={advancedSpectralCanvasRef} />
+
+          <LPCAnalysisTool audioData={audioData} canvasRef={lpcAnalysisCanvasRef} />
         </div>
       )}
 

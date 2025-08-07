@@ -23,7 +23,8 @@ export function AudioVideoRecorder({ isListening, canvasRefs, audioStream }: Aud
     { index: 1, label: 'Amplitude Envelope Analysis', color: '#ff8844', selected: true },
     { index: 2, label: 'Frequency Domain Analysis', color: '#4488ff', selected: true },
     { index: 3, label: 'Multi-Band Frequency Analysis', color: '#8b5cf6', selected: true },
-    { index: 4, label: 'Advanced Spectral Analysis', color: '#9333ea', selected: true }
+    { index: 4, label: 'Advanced Spectral Analysis', color: '#9333ea', selected: true },
+    { index: 5, label: 'LPC Analysis', color: '#ffa500', selected: true }
   ]);
   const [showConfig, setShowConfig] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -349,7 +350,7 @@ export function AudioVideoRecorder({ isListening, canvasRefs, audioStream }: Aud
             gap: '0.4rem'
           }}
         >
-          ⚙️ Configure ({selectedCanvases.filter(item => item.selected).length}/5)
+                          ⚙️ Configure ({selectedCanvases.filter(item => item.selected).length}/6)
         </button>
       )}
 

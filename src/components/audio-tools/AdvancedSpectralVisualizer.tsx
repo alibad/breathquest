@@ -40,6 +40,8 @@ export function AdvancedSpectralVisualizer({
 
     const width = canvas.offsetWidth;
     const height = 350;
+    const padding = 30; // Add padding for edge labels
+    const drawWidth = width - (padding * 2);
 
     // Clear canvas
     ctx.fillStyle = '#000000';
@@ -48,14 +50,14 @@ export function AdvancedSpectralVisualizer({
     if (data.length === 0) return;
 
     const nyquist = sampleRate / 2;
-    const maxDisplayFreq = Math.min(8000, nyquist);
+    const maxDisplayFreq = Math.min(20000, nyquist); // Cap at 20kHz - practical range
     
     // Draw frequency spectrum (more visible)
     for (let i = 0; i < data.length; i++) {
       const frequency = (i / data.length) * nyquist;
       if (frequency > maxDisplayFreq) break;
 
-      const x = (frequency / maxDisplayFreq) * width;
+      const x = padding + (frequency / maxDisplayFreq) * drawWidth;
       const magnitude = data[i] / 255.0;
       const barHeight = magnitude * (height - 100);
 
@@ -81,7 +83,7 @@ export function AdvancedSpectralVisualizer({
     // Draw feature-specific overlays
     if (showFeature === 'rolloff') {
       // Draw rolloff line
-      const rolloffX = (spectralFeatures.rolloff / maxDisplayFreq) * width;
+      const rolloffX = padding + (spectralFeatures.rolloff / maxDisplayFreq) * drawWidth;
       ctx.strokeStyle = '#ff6b6b';
       ctx.lineWidth = 3;
       ctx.setLineDash([]);
@@ -106,7 +108,7 @@ export function AdvancedSpectralVisualizer({
         const frequency = (i / data.length) * nyquist;
         if (frequency > maxDisplayFreq) break;
 
-        const x = (frequency / maxDisplayFreq) * width;
+        const x = padding + (frequency / maxDisplayFreq) * drawWidth;
         const magnitude = data[i] / 255.0;
         const barHeight = magnitude * (height - 100);
 
@@ -144,10 +146,10 @@ export function AdvancedSpectralVisualizer({
 
     } else if (showFeature === 'spread') {
       // Draw centroid and spread
-      const centroidX = (centroid / maxDisplayFreq) * width;
+      const centroidX = padding + (centroid / maxDisplayFreq) * drawWidth;
       const spreadRange = spectralFeatures.spread;
-      const leftBound = Math.max(0, (centroid - spreadRange) / maxDisplayFreq * width);
-      const rightBound = Math.min(width, (centroid + spreadRange) / maxDisplayFreq * width);
+      const leftBound = Math.max(padding, padding + (centroid - spreadRange) / maxDisplayFreq * drawWidth);
+      const rightBound = Math.min(padding + drawWidth, padding + (centroid + spreadRange) / maxDisplayFreq * drawWidth);
 
       // Spread area
       ctx.fillStyle = 'rgba(69, 183, 209, 0.2)';
@@ -171,7 +173,7 @@ export function AdvancedSpectralVisualizer({
 
     } else if (showFeature === 'skewness') {
       // Draw skewness visualization
-      const centroidX = (centroid / maxDisplayFreq) * width;
+      const centroidX = padding + (centroid / maxDisplayFreq) * drawWidth;
       const skewness = spectralFeatures.skewness;
 
       // Skewness arrow
@@ -213,31 +215,29 @@ export function AdvancedSpectralVisualizer({
       ctx.fillText(`Skewness: ${skewness.toFixed(2)}`, width / 2, 45);
     }
 
-    // Draw frequency labels at bottom (more visible)
+    // Draw frequency labels at bottom (clean spacing)
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 12px Arial';
+    ctx.font = 'bold 11px Arial';
     ctx.textAlign = 'center';
-    for (let freq = 0; freq <= maxDisplayFreq; freq += 1000) {
-      const x = (freq / maxDisplayFreq) * width;
+    
+    // Clean 2kHz steps for 20kHz range: 0, 2k, 4k, 6k, 8k, 10k, 12k, 14k, 16k, 18k, 20k
+    for (let freq = 0; freq <= maxDisplayFreq; freq += 2000) {
+      const x = padding + (freq / maxDisplayFreq) * drawWidth;
       
-      // Background for better visibility
-      const textWidth = ctx.measureText(`${(freq / 1000).toFixed(0)}k`).width;
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-      ctx.fillRect(x - textWidth/2 - 4, height - 25, textWidth + 8, 16);
+      // Clean label format
+      const label = freq === 0 ? '0' : `${freq / 1000}k`;
+      const textWidth = ctx.measureText(label).width;
+      
+      // Subtle background for better visibility
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+      ctx.fillRect(x - textWidth/2 - 3, height - 22, textWidth + 6, 14);
       
       // Frequency text
       ctx.fillStyle = '#ffffff';
-      ctx.fillText(`${(freq / 1000).toFixed(0)}k`, x, height - 12);
+      ctx.fillText(label, x, height - 10);
     }
 
-    // Draw frequency labels at top too
-    ctx.fillStyle = '#cccccc';
-    ctx.font = 'bold 11px Arial';
-    ctx.textAlign = 'center';
-    for (let freq = 1000; freq <= maxDisplayFreq; freq += 1000) {
-      const x = (freq / maxDisplayFreq) * width;
-      ctx.fillText(`${(freq / 1000).toFixed(0)}kHz`, x, 15);
-    }
+    // Clean - no duplicate labels at top
 
   }, [data, sampleRate, spectralFeatures, showFeature, canvasRef]);
 
