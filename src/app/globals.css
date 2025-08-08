@@ -427,6 +427,34 @@ footer {
     color: var(--secondary);
 }
 
+/* Themed, auto-hiding scrollbars */
+.scroll-panel {
+    overflow-y: auto;
+    scrollbar-width: none; /* Firefox hidden by default */
+    scrollbar-color: transparent transparent;
+}
+.scroll-panel:hover {
+    scrollbar-width: thin; /* Firefox show on hover */
+    scrollbar-color: rgba(255,255,255,0.18) transparent;
+}
+.scroll-panel::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+.scroll-panel::-webkit-scrollbar-track {
+    background: transparent;
+}
+.scroll-panel::-webkit-scrollbar-thumb {
+    background-color: transparent; /* hidden until hover */
+    border-radius: 8px;
+}
+.scroll-panel:hover::-webkit-scrollbar-thumb {
+    background-color: rgba(255,255,255,0.18);
+}
+.scroll-panel::-webkit-scrollbar-thumb:active {
+    background-color: rgba(255,255,255,0.32);
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .timeline::before {

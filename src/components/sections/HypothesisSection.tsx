@@ -44,16 +44,24 @@ const hypothesesData: HypothesisStatus[] = [
   },
   {
     id: 2,
-    title: "Breath-controlled gameplay is genuinely fun and engaging, not just a wellness novelty",
-    description: "Validating whether breath gaming creates compelling gameplay experiences",
-    status: 'pending',
+    title: "Clap patterns can power robust, fun, noise‑resistant real‑time game control",
+    description: "Evaluate whether intentional, percussive clap events and timing patterns (single, double, triple, rhythmic motifs) can be detected with low latency and mapped to reliable gameplay actions across typical environments.",
+    status: 'in-progress',
+    phase: 'Phase 1: Feasibility & Baselines',
+    findings: [
+      '✅ Claps have sharp transients and wideband spectra → easy onset detection with RMS/flux gating',
+      '✅ Timing between claps naturally encodes multiple actions (single/double/triple/rhythms)',
+      '🧪 Requires tolerance handling for user timing variance and room acoustics',
+      '🧪 Must test robustness vs. echo, AGC, and background applause/music'
+    ],
     nextSteps: [
-      'Wait for Hypothesis 1 completion (reliable breath detection)',
-      'Conduct structured user testing sessions',
-      'Measure engagement vs traditional controls',
-      'Test extended play sessions for fatigue factors',
-      'Compare breath gaming vs traditional input enjoyment'
-    ]
+      'Implement clap onset detector (RMS + spectral flux) with noise floor auto‑calibration',
+      'Add pattern matcher for single/double/triple and simple rhythms with ±tolerance windows',
+      'Build real‑time visualizer: event timeline, intervals, confidence, latency',
+      'Create mini‑game mapping patterns → actions; measure player success and delight',
+      'Benchmark across microphones/rooms: false positives, misses, end‑to‑end latency'
+    ],
+    demoLink: '/hypothesis-2'
   },
   {
     id: 3,
