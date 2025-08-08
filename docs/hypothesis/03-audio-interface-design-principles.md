@@ -1,41 +1,31 @@
 # Hypothesis 03: Universal Bio-Interface Design Principles
 
-**Hypothesis Statement:** The breath vs clap comparison reveals universal principles for designing successful biological interfaces.
+**Hypothesis Statement:** The breath vs clap comparison reveals universal principles for designing successful biological interfaces and can be embodied in a delightful, playable demo (“Clap Quest”).
 
-**Status:** ✅ VALIDATED  
+**Status:** ✅ COMPLETED (Game + Principles)  
 **Last Updated:** August 8, 2025
 
 ---
 
+## Outcome
+- Built the “Clap Quest” mini‑game: onboarding (single/double/triple), pause/mic UI, collisions, targets, collectibles, levels, best‑score persistence, SFX, particles, clouds.
+- Used the game to validate the following principles in the wild.
+
 ## The Seven Principles
+1. **Natural Feedback** – Interface provides inherent confirmation (clap sound vs silent breath)
+2. **Intentional Boundaries** – Discrete, controllable actions (clap timing vs continuous breathing)
+3. **Zero‑Friction Onboarding** – No setup required (claps work immediately vs breath calibration)
+4. **Cognitive Conservation** – Minimal mental overhead
+5. **Social Appropriateness** – Gestures fit context (celebratory claps)
+6. **Technical Performance** – Sub‑frame latency and high precision
+7. **Error Transparency** – Failures are obvious and recoverable
 
-From comparing breath and clap detection, we extracted universal design principles:
-
-1. **Natural Feedback** - Interface provides inherent confirmation (clap sound vs silent breath)
-2. **Intentional Boundaries** - Discrete, controllable actions (clap timing vs continuous breathing)
-3. **Zero-Friction Onboarding** - No setup required (claps work immediately vs breath calibration)
-4. **Cognitive Conservation** - Minimal mental overhead (15% vs 35% attention for breath monitoring)
-5. **Social Appropriateness** - Culturally acceptable gestures (celebratory claps vs intimate breathing)
-6. **Technical Performance** - Meets/exceeds traditional input methods (16ms clap vs 98ms breath)
-7. **Error Transparency** - Clear why failures occur (missed clap obvious vs unclear breath detection)
-
-## Validation
-
-**Theoretical predictions for other bio-signals:**
-- ✅ **Finger Snapping:** Should work well (natural feedback, discrete action)
-- ✅ **Whistling:** Should be excellent technically (distinct frequencies)
-- ❌ **Eye Blinks:** Likely poor (no feedback, setup required)
-- ⚠️ **Tongue Clicks:** Technical potential but social limitations
+## Validation Links
+- H1 – Breath detection is technically feasible but UX‑fragile → pivot catalyst
+- H2 – Claps outperform breath for gaming → green‑light for game design
 
 ## Applications
-
-Framework concepts being explored for:
-- Accessibility technology improvements
-- Audio interface research
-- Gaming input methods
+- Accessibility inputs, audio interfaces, and casual gaming controls.
 
 ## Impact
-
-Created first systematic framework for predicting bio-interface success. Now used across gaming, accessibility, wellness, and productivity domains.
-
-**Evolution:** Breath Detection → Clap Gaming → Universal Framework → Biological Computing Future
+A compact framework + demo for predicting/validating bio‑interfaces in products.

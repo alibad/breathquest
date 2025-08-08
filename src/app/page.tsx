@@ -21,12 +21,12 @@ export default function Home() {
         <section id="demo" className="demo-section">
           <h2>🎮 Interactive Demo</h2>
           <p style={{ fontSize: '1rem', marginBottom: '2rem' }}>
-            Try two live prototypes exploring sound‑based game control.
+            Try three live prototypes exploring sound‑based game control.
           </p>
 
           <div style={{
             display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
+            gridTemplateColumns: '1fr 1fr 1fr',
             gap: '2rem',
             alignItems: 'stretch',
             marginBottom: '2rem'
@@ -66,6 +66,23 @@ export default function Home() {
                   Percussive clap events + timing patterns for robust gameplay.
                 </div>
                 <div style={{ marginTop: '1rem', display: 'inline-block', padding: '0.6rem 1rem', background: 'linear-gradient(45deg, #4488ff, #00ff88)', color: '#000', borderRadius: '10px', fontWeight: 800 }}>Open Demo</div>
+              </div>
+            </a>
+
+            {/* Hypothesis 3 Card */}
+            <a href="/hypothesis-3" style={{ textDecoration: 'none', color: 'inherit' }}>
+              <div style={{
+                background: 'rgba(0, 20, 40, 0.8)',
+                padding: '2rem',
+                borderRadius: '16px',
+                border: '2px solid rgba(255, 200, 0, 0.4)'
+              }}>
+                <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🎮</div>
+                <h3 style={{ color: '#ffd36e', marginBottom: '0.5rem' }}>Hypothesis #3: Fun Sound Game</h3>
+                <div style={{ fontSize: '0.95rem', color: '#ccc' }}>
+                  Clap Quest runner with onboarding, scoring, lives, and polish.
+                </div>
+                <div style={{ marginTop: '1rem', display: 'inline-block', padding: '0.6rem 1rem', background: 'linear-gradient(45deg, #ffd36e, #4488ff)', color: '#000', borderRadius: '10px', fontWeight: 800 }}>Open Demo</div>
               </div>
             </a>
           </div>

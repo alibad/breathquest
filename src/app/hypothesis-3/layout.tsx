@@ -14,7 +14,7 @@ export default function HypothesisThreeLayout({ children }: { children: ReactNod
         fontWeight: 800,
         marginBottom: '1rem'
       }}>
-        Hypothesis #3 — Fun Sound Game (In Progress)
+        Hypothesis #3 — Fun Sound Game (Done)
       </h1>
       <p style={{ color: '#cccccc', marginBottom: '1.5rem' }}>
         Build a fun, expressive mini‑game powered by simple sounds. We start with claps (SINGLE/DOUBLE/TRIPLE) and may add voice controls next.

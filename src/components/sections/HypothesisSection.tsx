@@ -63,18 +63,16 @@ const hypothesesData: HypothesisStatus[] = [
     id: 3,
     title: 'Clap Quest — A fast, rewarding clap‑powered mini‑game',
     description: 'Design and build a polished, engaging game that uses intentional clap patterns to control three core actions: SINGLE → Jump, DOUBLE → Fire, TRIPLE → Special. Include a short, interactive onboarding that teaches each action with immediate feedback and ramps difficulty.',
-    status: 'in-progress',
-    phase: 'Phase 1: Game Design & Prototype',
+    status: 'completed',
+    phase: 'Done',
     findings: [
       '✅ Clap detection and pattern matching are working (single/double/triple)',
-      '🎯 Game needs clear feedback, scoring, and a learning curve to feel fun',
+      '✅ Runner prototype shipped with onboarding, scoring, lives, collectibles, SFX, and polish',
       '🧪 Risks: room acoustics and AGC; mitigated via adaptive baseline and timing tolerances'
     ],
     nextSteps: [
-      'Ship runner prototype with score, lives, multiplier, and three clap actions',
-      'Add onboarding: practice SINGLE, then DOUBLE, then TRIPLE with guided tasks',
-      'Polish effects (particles, flashes) and balance difficulty',
-      'Collect basic session metrics and iterate on feel'
+      'Iterate on difficulty balance and add optional voice controls',
+      'Track additional playtest metrics and expand level variety'
     ],
     demoLink: '/hypothesis-3'
   }

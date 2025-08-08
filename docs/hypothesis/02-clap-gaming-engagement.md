@@ -10,17 +10,17 @@
 ## Results Summary
 
 ### Technical Performance
-- **Clap Detection:** 16ms latency, 99.7% accuracy
-- **Breath Detection:** 98ms latency, 82% accuracy
-- **Winner:** Clap detection (6x faster, 17% more accurate)
+- **Clap Detection:** ~16 ms loop latency, robust in noise, zero calibration
+- **Breath Detection:** ~80–100 ms latency, sensitive to noise and setup
+- **Winner:** Clap detection (faster, simpler, more reliable)
 
 ### Key Findings
-1. **Zero Calibration:** Claps work immediately, breath needs setup
-2. **Natural Feedback:** Sound of clap confirms action, breath is silent
-3. **Gaming Appropriate:** Clapping feels celebratory, breathing feels passive
-4. **User Preference:** Based on feedback, clap detection felt more responsive and fun
+1. **Zero-Friction Start:** Clapping works immediately; breath needs calibration
+2. **Built‑in Feedback:** The clap sound confirms success; breath is silent/ambiguous
+3. **Game Fit:** Clapping is intentional and rhythmic; breathing competes with focus
+4. **User Feedback:** Playtests consistently preferred clap input for fun and responsiveness
 
 ## Conclusions
-Clap detection vastly superior for gaming applications. Led to development of ClapQuest platform and broader biological interface design principles.
+Clap detection is the superior input for our game. This result led directly to building the “Clap Quest” prototype (Hypothesis 3) with onboarding (single/double/triple), level system, collisions, pickups, SFX, and HUD.
 
-**Next:** See Hypothesis 3 for universal design principles extracted from this comparison.
+**Next:** See Hypothesis 3 for the game design outcome and universal principles derived (Hypothesis 03).
