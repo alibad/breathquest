@@ -38,14 +38,16 @@ export default function ClapGame(_: Props) {
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const detectorRef = useRef<ClapDetector | null>(null);
   const matcherRef = useRef<ClapPatternMatcher | null>(null);
+  const lastAudioFailLogRef = useRef<number>(0);
+  const isListeningRef = useRef<boolean>(false);
 
   // game state
   const actionQueueRef = useRef<Action[]>([]);
-  const lastTsRef = useRef<number>(0);
+  const lastTsRef = useRef<number | null>(null);
   const playerYRef = useRef<number>(0);
   const playerVyRef = useRef<number>(0);
   const cooldownRef = useRef<number>(0);
-  const obstaclesRef = useRef<{ x: number; y: number; w: number; h: number; type: 'low' | 'target' }[]>([]);
+  const obstaclesRef = useRef<{ x: number; y: number; w: number; h: number; type: 'low' | 'target' | 'barrier' }[]>([]);
   const projectilesRef = useRef<{ x: number; y: number; vx: number }[]>([]);
   const particlesRef = useRef<{ x: number; y: number; vx: number; vy: number; life: number; color: string; size: number }[]>([]);
   const shakeRef = useRef<{ t: number; mag: number }>({ t: 0, mag: 0 });
@@ -83,27 +85,39 @@ export default function ClapGame(_: Props) {
     if (name === 'TRIPLE') actionQueueRef.current.push('SPECIAL');
     // Onboarding progression - allow any pattern to advance if it matches the current goal
     if (currentPhase === 'onboarding1' && name === 'SINGLE') {
-      console.log('Onboarding1: SINGLE detected');
       setProgress((p) => {
         const next = p + 1; 
-        console.log(`Onboarding1 progress: ${p} -> ${next}`);
-        if (next >= 3) { setPhase('onboarding2'); return 0; } return next;
+        console.log(`📈 ONBOARDING1 PROGRESS: ${p}/3 -> ${next}/3 (SINGLE clap)`);
+        if (next >= 3) { 
+          console.log('🎉 ONBOARDING1 COMPLETE! Moving to Phase 2...');
+          setPhase('onboarding2'); 
+          return 0; 
+        } 
+        return next;
       });
     }
     if (currentPhase === 'onboarding2' && name === 'DOUBLE') {
-      console.log('Onboarding2: DOUBLE detected');
       setProgress((p) => {
         const next = p + 1; 
-        console.log(`Onboarding2 progress: ${p} -> ${next}`);
-        if (next >= 3) { setPhase('onboarding3'); return 0; } return next;
+        console.log(`📈 ONBOARDING2 PROGRESS: ${p}/3 -> ${next}/3 (DOUBLE clap)`);
+        if (next >= 3) { 
+          console.log('🎉 ONBOARDING2 COMPLETE! Moving to Phase 3...');
+          setPhase('onboarding3'); 
+          return 0; 
+        } 
+        return next;
       });
     }
     if (currentPhase === 'onboarding3' && name === 'TRIPLE') {
-      console.log('Onboarding3: TRIPLE detected');
       setProgress((p) => {
         const next = p + 1; 
-        console.log(`Onboarding3 progress: ${p} -> ${next}`);
-        if (next >= 1) { setPhase('ready'); return 0; } return next;
+        console.log(`📈 ONBOARDING3 PROGRESS: ${p}/1 -> ${next}/1 (TRIPLE clap)`);
+        if (next >= 1) { 
+          console.log('🎉 ONBOARDING3 COMPLETE! Ready to play!');
+          setPhase('ready'); 
+          return 0; 
+        } 
+        return next;
       });
     }
     
@@ -128,16 +142,17 @@ export default function ClapGame(_: Props) {
   };
 
   const startListening = async () => {
-    console.log('startListening called, current isListening:', isListening);
+    console.log('🎬 startListening called, current isListening:', isListening);
     if (isListening) return;
     
     try {
+      console.log('🎤 Requesting microphone access...');
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 },
         video: false
       } as MediaStreamConstraints);
-      console.log('Got media stream:', stream);
-      
+
+      console.log('✅ Got media stream, setting up audio context...');
       mediaStreamRef.current = stream;
       const ac = new (window.AudioContext || (window as any).webkitAudioContext)();
       audioContextRef.current = ac;
@@ -152,19 +167,31 @@ export default function ClapGame(_: Props) {
       detectorRef.current = new ClapDetector();
       matcherRef.current = new ClapPatternMatcher();
       
-      console.log('Audio setup complete, setting isListening to true');
+      console.log('🔧 Audio setup complete:', {
+        hasAnalyser: !!analyserRef.current,
+        hasDetector: !!detectorRef.current,
+        hasMatcher: !!matcherRef.current,
+        arraySize: dataArrayRef.current?.length
+      });
+
       // Reset timestamp to prevent speed issues when re-enabling mic
       lastTsRef.current = null;
+      
+      // Update both ref (immediate) and state (for UI)
+      isListeningRef.current = true;
       setIsListening(true);
+      console.log('🎯 Updated isListeningRef=true and setIsListening(true)');
       // Loop is already running from useEffect, no need to start again
     } catch (error) {
-      console.error('Error starting audio:', error);
+      console.error('❌ Error starting audio:', error);
     }
   };
 
   const stopListening = () => {
-    console.log('stopListening called, current isListening:', isListening);
+    // Update both ref (immediate) and state (for UI)
+    isListeningRef.current = false;
     setIsListening(false);
+    console.log('🛑 Updated isListeningRef=false and setIsListening(false)');
     // Don't stop the loop - keep rendering for onboarding
     mediaStreamRef.current?.getTracks().forEach(t => t.stop());
     mediaStreamRef.current = null;
@@ -315,42 +342,52 @@ export default function ClapGame(_: Props) {
       }
     }
 
-    // Enhanced collision detection
-    const playerX = 60;
-    const radius = 14; // Slightly larger hitbox for better game feel
-    const playerY = canvasHeight - 20 - (playerYRef.current * 100) + 16; // Match rendering coordinates
-    let collided = false;
-    let collidedObstacle = null;
-    
-    for (const o of obstaclesRef.current) {
-      if (o.type === 'target') continue; // targets don't damage player
-      // Both 'low' and 'barrier' obstacles can damage the player
+    // Enhanced collision detection - only if game is running and mic is enabled
+    console.log(`🔍 COLLISION CHECK: phase=${phase}, hasAnalyser=${!!analyserRef.current}, isListening=${isListeningRef.current}, obstacles=${obstaclesRef.current.length}`);
+    if (obstaclesRef.current.length > 0) { // Simplified: check collision if there are obstacles
+      const playerX = 60;
+      const radius = 14; // Slightly larger hitbox for better game feel
+      const playerY = canvasHeight - 20 - (playerYRef.current * 100) + 16; // Match rendering coordinates
+      let collided = false;
+      let collidedObstacle = null;
       
-      // Match the obstacle coordinates from rendering: canvasHeight - 20 - o.h
-      const obstacleLeft = o.x;
-      const obstacleRight = o.x + o.w;
-      const obstacleTop = canvasHeight - 20 - o.h;
-      const obstacleBottom = canvasHeight - 20;
-      
-      // Circle vs Rectangle collision
-      const nearestX = Math.max(obstacleLeft, Math.min(playerX, obstacleRight));
-      const nearestY = Math.max(obstacleTop, Math.min(playerY, obstacleBottom));
-      const dx = playerX - nearestX; 
-      const dy = playerY - nearestY;
-      
-      if (dx * dx + dy * dy <= radius * radius) { 
-        collided = true; 
-        collidedObstacle = o;
-        console.log(`🔥 COLLISION! Player: (${playerX}, ${playerY}) vs Obstacle: (${o.x}, ${obstacleTop}-${obstacleBottom}), Distance: ${Math.sqrt(dx*dx + dy*dy)}, Radius: ${radius}`);
-        break; 
+      for (const o of obstaclesRef.current) {
+        if (o.type === 'target') continue; // targets don't damage player
+        // Both 'low' and 'barrier' obstacles can damage the player
+        
+        // Match the obstacle coordinates from rendering: canvasHeight - 20 - o.h
+        const obstacleLeft = o.x;
+        const obstacleRight = o.x + o.w;
+        const obstacleTop = canvasHeight - 20 - o.h;
+        const obstacleBottom = canvasHeight - 20;
+        
+        // Circle vs Rectangle collision
+        const nearestX = Math.max(obstacleLeft, Math.min(playerX, obstacleRight));
+        const nearestY = Math.max(obstacleTop, Math.min(playerY, obstacleBottom));
+        const dx = playerX - nearestX; 
+        const dy = playerY - nearestY;
+        
+        if (dx * dx + dy * dy <= radius * radius) { 
+          collided = true; 
+          collidedObstacle = o;
+          console.log(`🔥 COLLISION! Player: (${playerX}, ${playerY}) vs Obstacle: (${o.x}, ${obstacleTop}-${obstacleBottom}), Distance: ${Math.sqrt(dx*dx + dy*dy)}, Radius: ${radius}`);
+          break; 
+        } else {
+          // Debug: Show near misses  
+          const distance = Math.sqrt(dx*dx + dy*dy);
+          if (distance < radius + 10) {
+            console.log(`⚠️ NEAR MISS: Player: (${playerX}, ${playerY}) vs Obstacle: (${o.x}, ${obstacleTop}-${obstacleBottom}), Distance: ${distance.toFixed(1)}, Radius: ${radius}`);
+          }
+        }
       }
-    }
-    if (collided && phase === 'running') {
-      setLives(l => {
-        const next = l - 1;
-        if (next <= 0) setPhase('gameover');
-        return next;
-      });
+      if (collided) {
+        console.log(`💥 COLLISION DETECTED! Lives before: ${lives}`);
+        setLives(l => {
+          const next = l - 1;
+          console.log(`💔 Lives: ${l} -> ${next}`);
+          if (next <= 0) setPhase('gameover');
+          return next;
+        });
       setMultiplier(1);
       
       // Remove only the collided obstacle
@@ -375,6 +412,7 @@ export default function ClapGame(_: Props) {
       // Enhanced collision sound
       playSfx(180, 250);
       setTimeout(() => playSfx(120, 200), 150);
+      }
     }
 
     // spawning with level-based difficulty
@@ -481,8 +519,8 @@ export default function ClapGame(_: Props) {
     ctx.fill();
     ctx.shadowBlur = 0;
 
-    // Show sample obstacles during onboarding for demonstration
-    if (phase.startsWith('onboarding') || phase === 'ready') {
+    // Show sample obstacles during onboarding for demonstration (only if mic is enabled)
+    if ((phase.startsWith('onboarding') || phase === 'ready') && isListening) {
       // Sample low obstacle (orange spiky)
       const sampleX = width * 0.7;
       const sampleY = height - 20 - 25;
@@ -675,11 +713,13 @@ export default function ClapGame(_: Props) {
         ctx.fillText('❤️', 20 + i * 25, 25);
       }
       
+      // Always show score (not just in running phase)
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 16px system-ui';
+      ctx.fillText(`Score: ${score}`, width - 130, height - 40);
+      
       if (phase === 'running') {
-        // Score and multiplier in BOTTOM RIGHT
-        ctx.fillStyle = '#fff';
-        ctx.font = 'bold 16px system-ui';
-        ctx.fillText(`Score: ${score}`, width - 130, height - 40);
+        // Score multiplier only in running phase
         if (multiplier > 1) {
           ctx.fillStyle = '#ffaa00';
           ctx.font = 'bold 14px system-ui';
@@ -751,38 +791,25 @@ export default function ClapGame(_: Props) {
     
     // During onboarding, we always render even without mic
     const analyser = analyserRef.current;
-    const shouldProcessAudio = analyser && isListening;
+    const shouldProcessAudio = analyser && isListeningRef.current;
+    
+    // Debug: Check the timing issue
+    if (analyser && !isListeningRef.current) {
+      console.log(`⚠️ TIMING ISSUE: analyser exists but isListeningRef=${isListeningRef.current}, isListening state=${isListening}`);
+    }
 
     const width = canvas.width;
     const height = canvas.height;
     const ctx = canvas.getContext('2d')!;
+    const now = performance.now();
 
-    // Debug logging for audio processing conditions (only when state changes)
-    const debugState = {
-      shouldProcessAudio,
-      paused,
-      hasDetector: !!detectorRef.current,
-      hasMatcher: !!matcherRef.current,
-      isListening,
-      hasAnalyser: !!analyser,
-      phase,
-      // Extra debug info
-      analyserRefCurrent: !!analyserRef.current,
-      calculation: `${!!analyser} && ${isListening} = ${shouldProcessAudio}`
-    };
-    
-    // Only log when state changes
-    if (!(window as any).lastDebugState || JSON.stringify((window as any).lastDebugState) !== JSON.stringify(debugState)) {
-      console.log('Audio state changed:', debugState);
-      (window as any).lastDebugState = debugState;
-    }
+
 
     // audio processing - only if mic enabled and not paused
     if (shouldProcessAudio && !paused && detectorRef.current && matcherRef.current) {
-      // Debug: audio processing is active
+      // console.log(`🔄 PROCESSING AUDIO: Phase=${phase}, shouldProcessAudio=${shouldProcessAudio}, paused=${paused}`);
       analyser.getByteFrequencyData(dataArrayRef.current!);
       analyser.getByteTimeDomainData(timeArrayRef.current!);
-      const now = performance.now();
       const clap = detectorRef.current.process({
         timeDomain: timeArrayRef.current!,
         frequencyDomain: dataArrayRef.current!,
@@ -790,10 +817,10 @@ export default function ClapGame(_: Props) {
         timestampMs: now
       });
       if (clap) {
-        console.log('Clap detected:', clap);
+        console.log(`🎵 CLAP DETECTED! Phase: ${phase}, RMS: ${clap.rms.toFixed(3)}`);
         const pattern = matcherRef.current.addClap(clap);
         if (pattern) {
-          console.log('Pattern detected:', pattern.name);
+          console.log(`🎯 PATTERN MATCHED: ${pattern.name} -> ${pattern.name === 'SINGLE' ? 'JUMP' : pattern.name === 'DOUBLE' ? 'FIRE' : 'SPECIAL'}`);
           enqueueAction(pattern.name);
         }
         if (phase === 'running') setScore(s => s + 1);
@@ -802,9 +829,15 @@ export default function ClapGame(_: Props) {
       // Check for delayed SINGLE patterns
       const pendingPattern = matcherRef.current.checkPendingSingle();
       if (pendingPattern) {
-        console.log('Delayed pattern:', pendingPattern.name);
+        console.log(`⏰ DELAYED PATTERN: ${pendingPattern.name} -> JUMP`);
         enqueueAction(pendingPattern.name);
         if (phase === 'running') setScore(s => s + 1);
+      }
+    } else {
+      // Log why audio processing is not happening (but throttle it to every 2 seconds)
+      if (!lastAudioFailLogRef.current || now - lastAudioFailLogRef.current > 2000) {
+        // console.log(`❌ NO AUDIO PROCESSING: shouldProcessAudio=${shouldProcessAudio}, paused=${paused}, hasDetector=${!!detectorRef.current}, hasMatcher=${!!matcherRef.current}`);
+        lastAudioFailLogRef.current = now;
       }
     }
 
@@ -856,24 +889,7 @@ export default function ClapGame(_: Props) {
 
   useEffect(() => () => stopListening(), []);
 
-  // Debug: Track isListening state changes
-  useEffect(() => {
-    console.log('isListening state changed to:', isListening);
-  }, [isListening]);
 
-  // Debug: Track analyser ref changes
-  useEffect(() => {
-    const checkAnalyser = () => {
-      console.log('analyserRef check:', {
-        hasAnalyser: !!analyserRef.current,
-        isListening,
-        shouldProcessAudio: !!analyserRef.current && isListening
-      });
-    };
-    checkAnalyser();
-    const interval = setInterval(checkAnalyser, 500);
-    return () => clearInterval(interval);
-  }, [isListening]);
 
   // Store loop function in ref to avoid dependency issues
   const loopRef = useRef<((ts: number) => void) | null>(null);
@@ -915,8 +931,28 @@ export default function ClapGame(_: Props) {
               padding: '2rem 2.5rem', 
               textAlign: 'center',
               width: 'min(500px, 90%)',
-              boxShadow: '0 20px 40px rgba(0,0,0,0.5)'
+              boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
+              position: 'relative'
             }}>
+              {/* Close Button */}
+              <button 
+                onClick={() => { setPhase('ready'); setProgress(0); }}
+                style={{
+                  position: 'absolute',
+                  top: '1rem',
+                  right: '1rem',
+                  background: 'none',
+                  border: 'none',
+                  color: '#ccc',
+                  fontSize: '1.5rem',
+                  cursor: 'pointer',
+                  padding: '0.25rem',
+                  lineHeight: 1
+                }}
+              >
+                ✕
+              </button>
+              
               <div style={{ 
                 fontSize: '1.8rem', 
                 fontWeight: 900, 
@@ -973,16 +1009,36 @@ export default function ClapGame(_: Props) {
           </div>
         )}
         {isListening && (phase === 'onboarding1' || phase === 'onboarding2' || phase === 'onboarding3' || phase === 'ready') && (
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div style={{ 
               background: 'linear-gradient(135deg, rgba(0,0,0,0.85), rgba(20,20,40,0.9))', 
               border: '2px solid rgba(0,255,136,0.3)', 
               borderRadius: '16px', 
               padding: '2rem 2.5rem', 
               width: 'min(600px, 90%)',
-              boxShadow: '0 20px 40px rgba(0,0,0,0.5)'
+              boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
+              position: 'relative'
             }}>
               
+              {/* Close Button */}
+              <button 
+                onClick={() => { setPhase('ready'); setProgress(0); }}
+                style={{
+                  position: 'absolute',
+                  top: '1rem',
+                  right: '1rem',
+                  background: 'none',
+                  border: 'none',
+                  color: '#ccc',
+                  fontSize: '1.5rem',
+                  cursor: 'pointer',
+                  padding: '0.25rem',
+                  lineHeight: 1
+                }}
+              >
+                ✕
+              </button>
+
               {/* Welcome Header */}
               {phase === 'onboarding1' && (
                 <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>

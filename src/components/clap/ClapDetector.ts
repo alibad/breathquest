@@ -29,6 +29,7 @@ export class ClapDetector {
   private calibration: Calibration;
   private baselineRms = 0;
   private lastUpdateAt = 0;
+  private lastLogAt = 0;
 
   constructor() {
     this.calibration = this.loadCalibration();
@@ -62,6 +63,13 @@ export class ClapDetector {
   process(input: ClapEventInput): ClapEventInternal | null {
     const { timeDomain, frequencyDomain, sampleRate, timestampMs } = input;
     
+    // Basic mic activity logging every 2 seconds
+    if (!this.lastLogAt || timestampMs - this.lastLogAt > 2000) {
+      const rms = this.calculateRMS(timeDomain);
+      // console.log(`🎤 MIC ACTIVE: RMS=${rms.toFixed(4)}, Baseline=${this.baselineRms.toFixed(4)}, Threshold=${(this.baselineRms * this.getSensitivityFactor()).toFixed(4)}`);
+      this.lastLogAt = timestampMs;
+    }
+    
     // Convert to normalized floats (-1 to 1)
     const floatData = new Float32Array(timeDomain.length);
     for (let i = 0; i < timeDomain.length; i++) {
@@ -87,9 +95,17 @@ export class ClapDetector {
     const minHighAmp = this.getMinHighAmp();
     const minZeroCrossings = this.getMinZeroCrossings();
     
+    // Log detection attempts when we're close
+    if (highAmp > minHighAmp * 0.7 || zeroCrossings > minZeroCrossings * 0.7) {
+      console.log(`🔍 DETECTION ATTEMPT: highAmp=${highAmp}/${minHighAmp}, zeroCrossings=${zeroCrossings}/${minZeroCrossings}`);
+    }
+    
     if (highAmp > minHighAmp && zeroCrossings > minZeroCrossings) {
       // Refractory block
-      if (timestampMs - this.lastClapAt < this.calibration.refractoryMs) return null;
+      if (timestampMs - this.lastClapAt < this.calibration.refractoryMs) {
+        console.log(`⏸️ REFRACTORY BLOCK: ${timestampMs - this.lastClapAt}ms < ${this.calibration.refractoryMs}ms`);
+        return null;
+      }
       this.lastClapAt = timestampMs;
 
       const rms = this.calculateRMS(timeDomain);
@@ -97,6 +113,7 @@ export class ClapDetector {
       const flatness = this.calculateSpectralFlatness(frequencyDomain);
       const confidence = Math.min(1, (highAmp / 50) * (zeroCrossings / 50));
 
+      console.log(`✅ CLAP DETECTED! highAmp=${highAmp}, zeroCrossings=${zeroCrossings}, rms=${rms.toFixed(4)}`);
       return { timestamp: timestampMs, rms, centroid, flatness, confidence };
     }
 
@@ -189,7 +206,7 @@ export class ClapDetector {
       case 'low': return 25;
       case 'high': return 8;
       case 'medium':
-      default: return 15;
+      default: return 15;  // Back to original values
     }
   }
 
@@ -198,7 +215,7 @@ export class ClapDetector {
       case 'low': return 35;
       case 'high': return 15;
       case 'medium':
-      default: return 25;
+      default: return 25;  // Back to original values
     }
   }
 

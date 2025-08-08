@@ -20,17 +20,28 @@ export class ClapPatternMatcher {
   private readonly windowMs = 3500;
   private readonly debounceMs = 250;
   private lastEmitAt = 0;
-  private pendingSingleAt = 0;
-  private readonly singleDelayMs = 600; // Wait before emitting SINGLE
+
+  private currentPhase = 'normal'; // Default to normal mode
 
   private patterns: ClapPattern[] = [
     { name: 'SINGLE', intervals: [], tolerance: 0, minConfidence: 0 },
-    { name: 'DOUBLE', intervals: [350], tolerance: 150, minConfidence: 0 },
-    { name: 'TRIPLE', intervals: [350, 350], tolerance: 150, minConfidence: 0 },
+    { name: 'DOUBLE', intervals: [300], tolerance: 200, minConfidence: 0 }, // 100-500ms range (much wider!)
+    { name: 'TRIPLE', intervals: [300, 300], tolerance: 200, minConfidence: 0 }, // 100-500ms range per gap
   ];
 
   addCustomPattern(pattern: ClapPattern) {
     this.patterns.push(pattern);
+  }
+
+  setPhase(phase: string) {
+    this.currentPhase = phase;
+    console.log(`ClapPatternMatcher phase set to: ${phase}`);
+  }
+
+  reset() {
+    this.history = [];
+    this.lastEmitAt = 0;
+    console.log('ClapPatternMatcher reset');
   }
 
   addClap(clap: ClapEvent): ClapPattern | null {
@@ -46,15 +57,14 @@ export class ClapPatternMatcher {
       return null;
     }
 
-    // Cancel any pending single - we have a new clap
-    this.pendingSingleAt = 0;
+
 
     // Try multi-clap patterns first (excluding SINGLE)
     const multiPatterns = this.patterns.filter(p => p.intervals.length > 0);
     const sorted = [...multiPatterns].sort((a, b) => b.intervals.length - a.intervals.length);
     
     for (const pattern of sorted) {
-      console.log(`Checking pattern: ${pattern.name}`);
+      console.log(`Checking pattern: ${pattern.name}, need ${pattern.intervals.length + 1} claps, have ${this.history.length}`);
       if (this.isMatch(pattern)) {
         console.log(`MATCHED: ${pattern.name}`);
         this.lastEmitAt = now;
@@ -62,24 +72,14 @@ export class ClapPatternMatcher {
       }
     }
 
-    // No multi-clap pattern matched, schedule a delayed SINGLE
-    this.pendingSingleAt = now;
-    console.log(`Scheduling delayed SINGLE`);
-    return null;
+    // No multi-clap pattern matched, return SINGLE immediately
+    console.log(`No multi-clap match, returning SINGLE`);
+    this.lastEmitAt = now;
+    return { name: 'SINGLE', intervals: [], tolerance: 0, minConfidence: 0 };
   }
 
-  // Call this periodically to check for delayed SINGLE patterns
+  // No longer needed - we return SINGLE immediately
   checkPendingSingle(): ClapPattern | null {
-    if (this.pendingSingleAt === 0) return null;
-    
-    const now = performance.now();
-    if (now - this.pendingSingleAt >= this.singleDelayMs) {
-      this.pendingSingleAt = 0;
-      this.lastEmitAt = now;
-      console.log('Firing delayed SINGLE');
-      return { name: 'SINGLE', intervals: [], tolerance: 0, minConfidence: 0 };
-    }
-    
     return null;
   }
 
@@ -94,13 +94,20 @@ export class ClapPatternMatcher {
     // Use the last N+1 claps
     const start = this.history.length - (pattern.intervals.length + 1);
     const segment = this.history.slice(start);
-    // Confidence gating disabled (we already debounce and use timing tolerances)
-
+    
+    // Debug timing info
+    const timings = [];
     for (let i = 0; i < pattern.intervals.length; i++) {
       const dt = segment[i + 1].timestamp - segment[i].timestamp;
       const expected = pattern.intervals[i];
-      if (Math.abs(dt - expected) > pattern.tolerance) return false;
+      const diff = Math.abs(dt - expected);
+      timings.push(`${dt.toFixed(0)}ms(±${diff.toFixed(0)})`);
+      if (diff > pattern.tolerance) {
+        console.log(`${pattern.name} timing FAIL: ${timings.join(', ')} vs expected ${pattern.intervals.join(',')}±${pattern.tolerance}`);
+        return false;
+      }
     }
+    console.log(`${pattern.name} timing OK: ${timings.join(', ')}`);
     return true;
   }
 }
