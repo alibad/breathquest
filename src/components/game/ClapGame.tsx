@@ -2,14 +2,14 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { ClapDetector } from '../clap/ClapDetector';
-import { ClapPatternMatcher, type ClapEvent } from '../clap/ClapPatternMatcher';
+import { ClapPatternMatcher } from '../clap/ClapPatternMatcher';
 
 type Action = 'JUMP' | 'FIRE' | 'SPECIAL';
 type Phase = 'onboarding1' | 'onboarding2' | 'onboarding3' | 'ready' | 'running' | 'gameover';
 
-interface Props {}
+// Component has no props
 
-export default function ClapGame(_: Props) {
+export default function ClapGame() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
   const [isListening, setIsListening] = useState(false);
@@ -23,7 +23,6 @@ export default function ClapGame(_: Props) {
     }
     return 0;
   });
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [phase, setPhase] = useState<Phase>('onboarding1');
   const phaseRef = useRef<Phase>('onboarding1');
   
@@ -62,8 +61,7 @@ export default function ClapGame(_: Props) {
   // Soft drifting clouds (background layer)
   const cloudsRef = useRef<{ x: number; y: number; w: number; h: number; speed: number; alpha: number }[] | null>(null);
   const [paused, setPaused] = useState(false);
-  const [sfxEnabled, setSfxEnabled] = useState(true);
-  const [musicEnabled, setMusicEnabled] = useState(false);
+  const [sfxEnabled] = useState(true);
   const sfxCtxRef = useRef<AudioContext | null>(null);
   const lastScoreTimeRef = useRef(0);
   // Background animation time (ms). Advances only when actively animating
@@ -608,7 +606,6 @@ export default function ClapGame(_: Props) {
     if (cloudsRef.current) {
       cloudsRef.current.forEach(c => {
         ctx.globalAlpha = c.alpha;
-        const r = 6;
         ctx.fillStyle = '#ffffff';
         // simple rounded cloud shape
         ctx.beginPath();
