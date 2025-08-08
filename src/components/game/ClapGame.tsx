@@ -59,6 +59,8 @@ export default function ClapGame(_: Props) {
   const lastScoreTimeRef = useRef(0);
   // Background animation time (ms). Advances only when actively animating
   const bgTimeRef = useRef<number>(0);
+  // Player visual rotation (for rolling feel)
+  const playerRotRef = useRef<number>(0);
 
   const spawnObstacle = (force?: 'low' | 'target' | 'barrier') => {
     if (force === 'barrier') {
@@ -141,6 +143,50 @@ export default function ClapGame(_: Props) {
       osc.start();
       gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + durationMs / 1000);
       osc.stop(ctx.currentTime + durationMs / 1000);
+    } catch {}
+  };
+
+  // Richer collision sound: thump + crack + noise burst
+  const playCollisionSfx = () => {
+    if (!sfxEnabled) return;
+    try {
+      if (!sfxCtxRef.current) sfxCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const ctx = sfxCtxRef.current;
+      const t0 = ctx.currentTime;
+      // Low thump
+      const o1 = ctx.createOscillator();
+      const g1 = ctx.createGain();
+      o1.type = 'sine';
+      o1.frequency.setValueAtTime(180, t0);
+      o1.frequency.exponentialRampToValueAtTime(80, t0 + 0.18);
+      g1.gain.setValueAtTime(0.0001, t0);
+      g1.gain.exponentialRampToValueAtTime(0.5, t0 + 0.01);
+      g1.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.22);
+      o1.connect(g1).connect(ctx.destination);
+      o1.start(t0); o1.stop(t0 + 0.24);
+      // Crack (short high tone)
+      const o2 = ctx.createOscillator();
+      const g2 = ctx.createGain();
+      o2.type = 'triangle';
+      o2.frequency.setValueAtTime(1200, t0 + 0.02);
+      o2.frequency.exponentialRampToValueAtTime(500, t0 + 0.1);
+      g2.gain.setValueAtTime(0.0001, t0);
+      g2.gain.exponentialRampToValueAtTime(0.35, t0 + 0.02);
+      g2.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.12);
+      o2.connect(g2).connect(ctx.destination);
+      o2.start(t0); o2.stop(t0 + 0.14);
+      // Noise burst
+      const bufferSize = 0.08 * ctx.sampleRate;
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
+      const noise = ctx.createBufferSource();
+      noise.buffer = buffer;
+      const ng = ctx.createGain();
+      ng.gain.setValueAtTime(0.2, t0);
+      ng.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.08);
+      noise.connect(ng).connect(ctx.destination);
+      noise.start(t0); noise.stop(t0 + 0.09);
     } catch {}
   };
 
@@ -233,6 +279,10 @@ export default function ClapGame(_: Props) {
     if (playerYRef.current === 0 && playerVyRef.current < 0) playerVyRef.current = 0;
 
     cooldownRef.current = Math.max(0, cooldownRef.current - dt);
+
+    // rolling visual rotation (faster when moving / in air)
+    const rollingFactor = 0.002 * dt * (0.6 + (phase === 'running' ? SPEED_MULTIPLIER : 0.4));
+    playerRotRef.current += rollingFactor + (-playerVyRef.current * 0.02);
 
     // actions
     while (actionQueueRef.current.length > 0) {
@@ -398,18 +448,21 @@ export default function ClapGame(_: Props) {
             if (idx >= 0) obstaclesRef.current.splice(idx, 1);
             
             // Collision effects
-            shakeRef.current = { t: 200, mag: 6 };
-            playSfx(200, 300);
+            shakeRef.current = { t: 220, mag: 7 };
+            playCollisionSfx();
             
-            // Collision particles
-            for (let i = 0; i < 15; i++) {
+            // Collision particles (debris burst)
+            const debrisColor = '#ff6644';
+            for (let i = 0; i < 40; i++) {
+              const angle = Math.random() * Math.PI * 2;
+              const speed = 0.5 + Math.random() * 0.9;
               particlesRef.current.push({ 
-                x: 60 + (Math.random() - 0.5) * 30, 
-                y: py + (Math.random() - 0.5) * 20, 
-                vx: (Math.random() - 0.5) * 0.5, 
-                vy: (Math.random() - 0.5) * 0.4, 
-                life: 400, 
-                color: '#ff4444', 
+                x: ox + ow / 2, 
+                y: oy + oh / 2, 
+                vx: Math.cos(angle) * speed, 
+                vy: Math.sin(angle) * speed, 
+                life: 700 + Math.random() * 400, 
+                color: debrisColor, 
                 size: 2 + Math.random() * 3 
               });
             }
@@ -512,6 +565,7 @@ export default function ClapGame(_: Props) {
     ctx.save();
     ctx.translate(60, py - 16);
     ctx.scale(1 / squash, squash); // squash effect
+    ctx.rotate(playerRotRef.current); // rolling feel
     
     // Player glow effect
     ctx.shadowColor = '#00ff88';
@@ -556,42 +610,9 @@ export default function ClapGame(_: Props) {
     ctx.stroke();
     
     ctx.restore();
-
-    // DEBUG: Show collision hitboxes - EXACT same as collision detection
-    if (phase === 'running') {
-      const px = 60;
-      const py = height - 20 - (playerYRef.current * 100) - 16;
-      const pr = 16 - 4; // tolerance radius like reference
-      
-      // Player hitbox - EXACT same as collision detection
-      ctx.strokeStyle = '#ff00ff';
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.arc(px, py, pr, 0, Math.PI * 2);
-      ctx.stroke();
-      
-      // Obstacle hitboxes - EXACT same as collision detection  
-      obstaclesRef.current.forEach(o => {
-        if (o.type === 'target') return; // targets don't damage player
-        
-        const ox = o.x;
-        const oy = height - 20 - o.h; // EXACT same as collision
-        const ow = o.w;
-        const oh = o.h;
-        
-        ctx.strokeStyle = '#ff0000';
-        ctx.lineWidth = 3;
-        ctx.strokeRect(ox, oy, ow, oh);
-        
-        // Show if overlap exists (for debugging)
-        if (px + pr > ox && px - pr < ox + ow && py + pr > oy && py - pr < oy + oh) {
-          ctx.strokeStyle = '#ffff00'; // Yellow if overlapping
-          ctx.lineWidth = 5;
-          ctx.strokeRect(ox, oy, ow, oh);
-        }
-      });
-    }
-
+ 
+    // (debug hitboxes removed)
+ 
     // Show sample obstacles during onboarding for demonstration (only if mic is enabled)
     if ((phase.startsWith('onboarding') || phase === 'ready') && isListening) {
       // Sample low obstacle (orange spiky)
@@ -694,10 +715,10 @@ export default function ClapGame(_: Props) {
         ctx.fillRect(barrierX, barrierY, o.w, o.h);
         
         // Warning stripes
-        ctx.fillStyle = '#ffff00';
-        for (let i = 0; i < o.h; i += 8) {
-          ctx.fillRect(barrierX, barrierY + i, o.w, 4);
-        }
+        const stripeGrad = ctx.createLinearGradient(0, barrierY, 0, barrierY + o.h);
+        stripeGrad.addColorStop(0, '#fff39a'); stripeGrad.addColorStop(1, '#ffc400');
+        ctx.fillStyle = stripeGrad;
+        for (let i = 0; i < o.h; i += 10) ctx.fillRect(barrierX, barrierY + i, o.w, 3);
         
         // Pulsing danger glow
         const dangerPulse = Math.sin(performance.now() * 0.02) * 0.3 + 0.7;
@@ -849,13 +870,7 @@ export default function ClapGame(_: Props) {
       }
     }
 
-    if (phase === 'gameover') {
-      ctx.fillStyle = 'rgba(0,0,0,0.6)';
-      ctx.fillRect(0, 0, width, height);
-      ctx.fillStyle = '#fff';
-      ctx.font = 'bold 18px system-ui, -apple-system, Segoe UI, Roboto';
-      ctx.fillText('Game Over', width / 2 - 55, height / 2);
-    }
+    // Game over dialog is rendered in HTML; no canvas overlay here
   };
 
   const loop = (ts: number) => {
