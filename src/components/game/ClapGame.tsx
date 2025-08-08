@@ -57,6 +57,8 @@ export default function ClapGame(_: Props) {
   const [musicEnabled, setMusicEnabled] = useState(false);
   const sfxCtxRef = useRef<AudioContext | null>(null);
   const lastScoreTimeRef = useRef(0);
+  // Background animation time (ms). Advances only when actively animating
+  const bgTimeRef = useRef<number>(0);
 
   const spawnObstacle = (force?: 'low' | 'target' | 'barrier') => {
     if (force === 'barrier') {
@@ -204,7 +206,7 @@ export default function ClapGame(_: Props) {
 
   const GRAVITY_PER_MS = 0.0015; // slower falling for better control
   const JUMP_IMPULSE = 0.5; // higher jumps for better feel
-  const SPEED_MULTIPLIER = 1.8; // faster game pace
+  const SPEED_MULTIPLIER = 1.2; // slower overall pace
 
   const updateGame = (dt: number, canvasWidth: number, canvasHeight: number) => {
     // Automatic scoring - 10 points per second during running phase
@@ -296,7 +298,7 @@ export default function ClapGame(_: Props) {
 
     // move obstacles - much faster and more dynamic
     const gameSpeed = phase === 'running' ? SPEED_MULTIPLIER : 0.5; // slower during onboarding
-    obstaclesRef.current.forEach(o => { o.x -= 0.4 * gameSpeed * dt; });
+    obstaclesRef.current.forEach(o => { o.x -= 0.3 * gameSpeed * dt; });
     obstaclesRef.current = obstaclesRef.current.filter(o => o.x > -60);
 
     // move projectiles and hit targets - faster projectiles
@@ -354,69 +356,67 @@ export default function ClapGame(_: Props) {
       }
     }
 
-    // Enhanced collision detection - only if game is running 
-    if (phase === 'running' && obstaclesRef.current.length > 0) {
-      const playerX = 60;
-      const radius = 16; // Slightly larger hitbox for better game feel
-      const playerY = canvasHeight - 20 - (playerYRef.current * 100) - 16; // Match rendering coordinates
-      let collided = false;
-      let collidedObstacle = null;
+    // COLLISION DETECTION - EXACT reference game logic
+    if ((phase === 'running' || phase === 'ready') && obstaclesRef.current.length > 0) {
+      const px = 60; // player x
+      const py = canvasHeight - 20 - (playerYRef.current * 100) - 16; // player y  
+      const pr = 16 - 4; // player radius with tolerance like reference
       
       for (const o of obstaclesRef.current) {
         if (o.type === 'target') continue; // targets don't damage player
-        // Both 'low' and 'barrier' obstacles can damage the player
         
-        // Calculate obstacle position based on type
-        let obstacleY = 0;
-        if (o.type === 'low' || o.type === 'barrier') {
-          obstacleY = canvasHeight - 20 - o.h; // Ground obstacles
-        } else {
-          obstacleY = canvasHeight - 20 - (100 + o.y); // Air targets
+        // Calculate obstacle position - ground obstacles
+        const ox = o.x;
+        const oy = canvasHeight - 20 - o.h; // obstacle y
+        const ow = o.w; // obstacle width  
+        const oh = o.h; // obstacle height
+        
+        // Reference game collision logic: 
+        // if (px + pr > o.x && px - pr < o.x + o.w && py + pr > o.y && py - pr < o.y + o.h)
+        if (px + pr > ox && px - pr < ox + ow && py + pr > oy && py - pr < oy + oh) {
+          // Then check distance to closest point on rectangle
+          const cx = Math.max(ox, Math.min(px, ox + ow)); // clamp px to obstacle bounds
+          const cy = Math.max(oy, Math.min(py, oy + oh)); // clamp py to obstacle bounds  
+          const dx = px - cx;
+          const dy = py - cy;
+          
+          // Final distance check like reference: if (dx*dx + dy*dy < pr*pr)
+          if (dx * dx + dy * dy < pr * pr) {
+            console.log(`💥 COLLISION! Player (${px}, ${py}, r=${pr}) hit obstacle (${ox}, ${oy}, ${ow}x${oh})`);
+            
+            // Lose life and effects
+            setLives(l => {
+              const next = l - 1;
+              if (next <= 0) {
+                setPhase('gameover');
+              }
+              return next;
+            });
+            
+            // Remove the hit obstacle  
+            const idx = obstaclesRef.current.indexOf(o);
+            if (idx >= 0) obstaclesRef.current.splice(idx, 1);
+            
+            // Collision effects
+            shakeRef.current = { t: 200, mag: 6 };
+            playSfx(200, 300);
+            
+            // Collision particles
+            for (let i = 0; i < 15; i++) {
+              particlesRef.current.push({ 
+                x: 60 + (Math.random() - 0.5) * 30, 
+                y: py + (Math.random() - 0.5) * 20, 
+                vx: (Math.random() - 0.5) * 0.5, 
+                vy: (Math.random() - 0.5) * 0.4, 
+                life: 400, 
+                color: '#ff4444', 
+                size: 2 + Math.random() * 3 
+              });
+            }
+            
+            break; // Only process one collision per frame
+          }
         }
-        
-        // Simple circle vs rectangle collision
-        const dx = playerX - Math.max(o.x, Math.min(playerX, o.x + o.w));
-        const dy = playerY - Math.max(obstacleY, Math.min(playerY, obstacleY + o.h));
-        
-        if (dx * dx + dy * dy <= radius * radius) { 
-          collided = true; 
-          collidedObstacle = o;
-          console.log(`💥 COLLISION! Player at (60, ${playerY}) hit ${o.type} obstacle at (${o.x}, ${obstacleY}). Lives: ${lives} -> ${lives - 1}`);
-          break; 
-        }
-      }
-      if (collided) {
-        console.log(`💥 COLLISION DETECTED! Lives before: ${lives}`);
-        setLives(l => {
-          const next = l - 1;
-          console.log(`💔 Lives: ${l} -> ${next}`);
-          if (next <= 0) setPhase('gameover');
-          return next;
-        });
-      setMultiplier(1);
-      
-      // Remove only the collided obstacle
-      if (collidedObstacle) {
-        obstaclesRef.current = obstaclesRef.current.filter(o => o !== collidedObstacle);
-      }
-      
-      // Enhanced collision effects
-      for (let i = 0; i < 30; i++) {
-        particlesRef.current.push({ 
-          x: playerX + (Math.random() - 0.5) * 40, 
-          y: (canvasHeight - playerY) + (Math.random() - 0.5) * 40, // Convert to particle coordinates
-          vx: (Math.random() * 2 - 1) * 0.7, 
-          vy: (Math.random() * 2 - 1) * 0.7, 
-          life: 800 + Math.random() * 400, 
-          color: '#ff3333', 
-          size: 2 + Math.random() * 2 
-        });
-      }
-      shakeRef.current = { t: 500, mag: 8 };
-      
-      // Enhanced collision sound
-      playSfx(180, 250);
-      setTimeout(() => playSfx(120, 200), 150);
       }
     }
 
@@ -425,20 +425,20 @@ export default function ClapGame(_: Props) {
       const currentLevel = Math.floor(score / 1000) + 1;
       
       // Level-based spawn rates and obstacle types
-      let spawnRate = 0.008; // Base rate
-      let barrierChance = 0.1; // Start with low barrier chance
+      let spawnRate = 0.006; // Slightly slower base spawn rate
+      let barrierChance = 0.08; // Slightly fewer barriers initially
       
       switch(Math.min(currentLevel, 10)) {
-        case 1: spawnRate = 0.008; barrierChance = 0.05; break; // Very easy
-        case 2: spawnRate = 0.010; barrierChance = 0.10; break; // Easy
-        case 3: spawnRate = 0.012; barrierChance = 0.15; break; // Getting harder
-        case 4: spawnRate = 0.014; barrierChance = 0.20; break;
-        case 5: spawnRate = 0.016; barrierChance = 0.25; break; // Mid game
-        case 6: spawnRate = 0.018; barrierChance = 0.30; break;
-        case 7: spawnRate = 0.020; barrierChance = 0.35; break; // Hard
-        case 8: spawnRate = 0.022; barrierChance = 0.40; break;
-        case 9: spawnRate = 0.024; barrierChance = 0.45; break; // Very hard
-        case 10: spawnRate = 0.026; barrierChance = 0.50; break; // Maximum difficulty
+        case 1: spawnRate = 0.006; barrierChance = 0.05; break; // Very easy
+        case 2: spawnRate = 0.008; barrierChance = 0.10; break; // Easy
+        case 3: spawnRate = 0.010; barrierChance = 0.15; break; // Getting harder
+        case 4: spawnRate = 0.012; barrierChance = 0.20; break;
+        case 5: spawnRate = 0.014; barrierChance = 0.25; break; // Mid game
+        case 6: spawnRate = 0.016; barrierChance = 0.30; break;
+        case 7: spawnRate = 0.018; barrierChance = 0.35; break; // Hard
+        case 8: spawnRate = 0.020; barrierChance = 0.40; break;
+        case 9: spawnRate = 0.022; barrierChance = 0.45; break; // Very hard
+        case 10: spawnRate = 0.024; barrierChance = 0.50; break; // Maximum difficulty
       }
       
       if (Math.random() < spawnRate) {
@@ -485,7 +485,7 @@ export default function ClapGame(_: Props) {
 
     // city silhouette
     ctx.fillStyle = 'rgba(255,255,255,0.05)';
-    const t = performance.now() * 0.02;
+    const t = bgTimeRef.current * 0.02; // use frozen/incremented time
     for (let i = 0; i < 12; i++) {
       const bx = ((i * 120 - (t % 120)) % (width + 120));
       const bw = 40 + ((i * 37) % 30);
@@ -557,29 +557,38 @@ export default function ClapGame(_: Props) {
     
     ctx.restore();
 
-    // DEBUG: Show collision hitboxes (temporarily visible)
+    // DEBUG: Show collision hitboxes - EXACT same as collision detection
     if (phase === 'running') {
-      // Player hitbox
+      const px = 60;
+      const py = height - 20 - (playerYRef.current * 100) - 16;
+      const pr = 16 - 4; // tolerance radius like reference
+      
+      // Player hitbox - EXACT same as collision detection
       ctx.strokeStyle = '#ff00ff';
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 3;
       ctx.beginPath();
-      ctx.arc(60, py - 16, 16, 0, Math.PI * 2);
+      ctx.arc(px, py, pr, 0, Math.PI * 2);
       ctx.stroke();
       
-      // Obstacle hitboxes
+      // Obstacle hitboxes - EXACT same as collision detection  
       obstaclesRef.current.forEach(o => {
         if (o.type === 'target') return; // targets don't damage player
         
-        let obstacleY = 0;
-        if (o.type === 'low' || o.type === 'barrier') {
-          obstacleY = height - 20 - o.h; // Ground obstacles
-        } else {
-          obstacleY = height - 20 - (100 + o.y); // Air targets
-        }
+        const ox = o.x;
+        const oy = height - 20 - o.h; // EXACT same as collision
+        const ow = o.w;
+        const oh = o.h;
         
         ctx.strokeStyle = '#ff0000';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(o.x, obstacleY, o.w, o.h);
+        ctx.lineWidth = 3;
+        ctx.strokeRect(ox, oy, ow, oh);
+        
+        // Show if overlap exists (for debugging)
+        if (px + pr > ox && px - pr < ox + ow && py + pr > oy && py - pr < oy + oh) {
+          ctx.strokeStyle = '#ffff00'; // Yellow if overlapping
+          ctx.lineWidth = 5;
+          ctx.strokeRect(ox, oy, ow, oh);
+        }
       });
     }
 
@@ -767,7 +776,7 @@ export default function ClapGame(_: Props) {
     }
 
     // HUD - Lives in top left, other info in top right
-    if (phase === 'running' || phase.startsWith('onboarding')) {
+    if (phase === 'running' || phase === 'ready' || phase.startsWith('onboarding')) {
       ctx.fillStyle = '#fff';
       ctx.font = 'bold 16px system-ui, -apple-system, Segoe UI, Roboto';
       
@@ -856,10 +865,14 @@ export default function ClapGame(_: Props) {
     // During onboarding, we always render even without mic
     const analyser = analyserRef.current;
     const shouldProcessAudio = analyser && isListeningRef.current;
-    
-    // Debug: Check the timing issue
-    if (analyser && !isListeningRef.current) {
-      console.log(`⚠️ TIMING ISSUE: analyser exists but isListeningRef=${isListeningRef.current}, isListening state=${isListening}`);
+    const currentPhase = phaseRef.current; // always up-to-date
+    const shouldAnimate = isListeningRef.current && !paused && currentPhase === 'running';
+    // Debug (throttled) – why we aren't animating
+    (window as any).__animDbgLast = (window as any).__animDbgLast || 0;
+    if (performance.now() - (window as any).__animDbgLast > 1000) {
+      const state = { shouldAnimate, isListening: isListeningRef.current, paused, phase: currentPhase };
+      console.log('🎮 AnimState', state);
+      (window as any).__animDbgLast = performance.now();
     }
 
     const width = canvas.width;
@@ -905,11 +918,12 @@ export default function ClapGame(_: Props) {
       }
     }
 
-    // update - only if not paused and not game over
-    if (!paused && phase !== 'gameover') {
+    // update - only if animating
+    if (shouldAnimate) {
       const last = lastTsRef.current || ts;
       const dt = Math.min(50, ts - last);
       lastTsRef.current = ts;
+      bgTimeRef.current += dt; // advance background animation time only when animating
       if (lives > 0) {
         const canvas = canvasRef.current;
         if (canvas) {
@@ -919,12 +933,13 @@ export default function ClapGame(_: Props) {
     } else {
       // Reset timestamp when paused to prevent jumps when unpausing
       lastTsRef.current = ts;
+      // do not advance bgTimeRef, freezing background animation
     }
 
     // render
     renderGame(ctx, width, height);
-
-    rafRef.current = requestAnimationFrame(loop);
+    // Schedule next frame with latest loop function (prevents stale closures)
+    rafRef.current = requestAnimationFrame((nextTs) => loopRef.current?.(nextTs));
   };
 
   useEffect(() => {
@@ -1013,25 +1028,7 @@ export default function ClapGame(_: Props) {
               boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
               position: 'relative'
             }}>
-              {/* Close Button */}
-              <button 
-                onClick={() => { setPhase('ready'); setProgress(0); }}
-                style={{
-                  position: 'absolute',
-                  top: '1rem',
-                  right: '1rem',
-                  background: 'none',
-                  border: 'none',
-                  color: '#ccc',
-                  fontSize: '1.5rem',
-                  cursor: 'pointer',
-                  padding: '0.25rem',
-                  lineHeight: 1
-                }}
-              >
-                ✕
-              </button>
-              
+              {/* Removed mic overlay close button on request */}
               <div style={{ 
                 fontSize: '1.8rem', 
                 fontWeight: 900, 
@@ -1099,24 +1096,26 @@ export default function ClapGame(_: Props) {
               position: 'relative'
             }}>
               
-              {/* Close Button */}
-              <button 
-                onClick={() => { setPhase('ready'); setProgress(0); }}
-                style={{
-                  position: 'absolute',
-                  top: '1rem',
-                  right: '1rem',
-                  background: 'none',
-                  border: 'none',
-                  color: '#ccc',
-                  fontSize: '1.5rem',
-                  cursor: 'pointer',
-                  padding: '0.25rem',
-                  lineHeight: 1
-                }}
-              >
-                ✕
-              </button>
+              {/* Close Button - keep only for onboarding phases (not in 'ready') */}
+              {phase !== 'ready' && (
+                <button 
+                  onClick={() => { setPhase('ready'); setProgress(0); }}
+                  style={{
+                    position: 'absolute',
+                    top: '1rem',
+                    right: '1rem',
+                    background: 'none',
+                    border: 'none',
+                    color: '#ccc',
+                    fontSize: '1.5rem',
+                    cursor: 'pointer',
+                    padding: '0.25rem',
+                    lineHeight: 1
+                  }}
+                >
+                  ✕
+                </button>
+              )}
 
               {/* Welcome Header */}
               {phase === 'onboarding1' && (
@@ -1276,16 +1275,29 @@ export default function ClapGame(_: Props) {
                   </>
                 ) : (
                   <>
+                    {/* Re-add 'Start Adventure!' for ready-to-play */}
                     <button 
-                      onClick={() => setPhase('running')} 
+                      onClick={() => { 
+                        console.log('▶️ GAME START button clicked');
+                        setPaused(false);
+                        setPhase('running');
+                        phaseRef.current = 'running';
+                        if (matcherRef.current) matcherRef.current.setPhase('running');
+                        lastTsRef.current = performance.now();
+                        bgTimeRef.current = 0;
+                        // Kick off immediate feedback
+                        actionQueueRef.current.push('JUMP');
+                        // Ensure at least one obstacle is present
+                        if (obstaclesRef.current.length === 0) spawnObstacle('barrier');
+                      }} 
                       style={{ 
-                        padding: '1rem 2rem', 
+                        padding: '0.6rem 1.2rem', 
                         borderRadius: '12px', 
                         border: '2px solid #00ff88', 
                         background: 'linear-gradient(45deg, rgba(0,255,136,0.2), rgba(68,136,255,0.2))', 
                         color: '#fff', 
                         fontWeight: 800,
-                        fontSize: '1.1rem',
+                        fontSize: '1rem',
                         cursor: 'pointer'
                       }}
                     >
@@ -1294,13 +1306,14 @@ export default function ClapGame(_: Props) {
                     <button 
                       onClick={() => { setPhase('onboarding1'); setProgress(0); }} 
                       style={{ 
-                        padding: '1rem 1.5rem', 
+                        padding: '0.6rem 1.0rem', 
                         borderRadius: '12px', 
                         border: '1px solid rgba(255,255,255,0.3)', 
                         background: 'rgba(255,255,255,0.1)', 
                         color: '#ccc', 
                         fontWeight: 600,
-                        cursor: 'pointer'
+                        cursor: 'pointer',
+                        marginLeft: '0.5rem'
                       }}
                     >
                       Practice Again
