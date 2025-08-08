@@ -65,10 +65,6 @@ export default function HypothesisTwoPage() {
 
     detectorRef.current = new ClapDetector();
     matcherRef.current = new ClapPatternMatcher();
-    
-    // Explicitly set to normal mode for Hypothesis #2
-    matcherRef.current.setPhase('normal');
-    console.log('Hypothesis #2: Set ClapPatternMatcher to NORMAL mode');
 
     setIsListening(true);
     loop();
@@ -116,6 +112,12 @@ export default function HypothesisTwoPage() {
       setClapCount(c => c + 1);
       setFlash(true);
       setTimeout(() => setFlash(false), 200);
+    }
+
+    // Check for delayed SINGLE patterns
+    const pendingPattern = matcherRef.current!.checkPendingSingle();
+    if (pendingPattern) {
+      setPatternHistory(prev => [{ name: pendingPattern.name, detectedAt: Date.now() }, ...prev].slice(0, 20));
     }
 
     // Gate indicators

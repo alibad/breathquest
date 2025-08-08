@@ -20,11 +20,13 @@ export class ClapPatternMatcher {
   private readonly windowMs = 3500;
   private readonly debounceMs = 250;
   private lastEmitAt = 0;
+  private pendingSingleAt = 0;
+  private readonly singleDelayMs = 600; // Wait before emitting SINGLE
 
   private patterns: ClapPattern[] = [
     { name: 'SINGLE', intervals: [], tolerance: 0, minConfidence: 0 },
-    { name: 'DOUBLE', intervals: [200], tolerance: 80, minConfidence: 0 },
-    { name: 'TRIPLE', intervals: [200, 200], tolerance: 90, minConfidence: 0 },
+    { name: 'DOUBLE', intervals: [350], tolerance: 150, minConfidence: 0 },
+    { name: 'TRIPLE', intervals: [350, 350], tolerance: 150, minConfidence: 0 },
   ];
 
   addCustomPattern(pattern: ClapPattern) {
@@ -36,17 +38,48 @@ export class ClapPatternMatcher {
     this.history.push(clap);
     this.history = this.history.filter(c => now - c.timestamp <= this.windowMs);
 
-    const sinceLast = now - this.lastEmitAt;
-    if (sinceLast < this.debounceMs) return null;
+    console.log(`ClapPatternMatcher: ${this.history.length} claps in history`);
 
-    // Try to match, longest first
-    const sorted = [...this.patterns].sort((a, b) => b.intervals.length - a.intervals.length);
+    const sinceLast = now - this.lastEmitAt;
+    if (sinceLast < this.debounceMs) {
+      console.log(`Debounced: ${sinceLast}ms < ${this.debounceMs}ms`);
+      return null;
+    }
+
+    // Cancel any pending single - we have a new clap
+    this.pendingSingleAt = 0;
+
+    // Try multi-clap patterns first (excluding SINGLE)
+    const multiPatterns = this.patterns.filter(p => p.intervals.length > 0);
+    const sorted = [...multiPatterns].sort((a, b) => b.intervals.length - a.intervals.length);
+    
     for (const pattern of sorted) {
+      console.log(`Checking pattern: ${pattern.name}`);
       if (this.isMatch(pattern)) {
+        console.log(`MATCHED: ${pattern.name}`);
         this.lastEmitAt = now;
         return pattern;
       }
     }
+
+    // No multi-clap pattern matched, schedule a delayed SINGLE
+    this.pendingSingleAt = now;
+    console.log(`Scheduling delayed SINGLE`);
+    return null;
+  }
+
+  // Call this periodically to check for delayed SINGLE patterns
+  checkPendingSingle(): ClapPattern | null {
+    if (this.pendingSingleAt === 0) return null;
+    
+    const now = performance.now();
+    if (now - this.pendingSingleAt >= this.singleDelayMs) {
+      this.pendingSingleAt = 0;
+      this.lastEmitAt = now;
+      console.log('Firing delayed SINGLE');
+      return { name: 'SINGLE', intervals: [], tolerance: 0, minConfidence: 0 };
+    }
+    
     return null;
   }
 
