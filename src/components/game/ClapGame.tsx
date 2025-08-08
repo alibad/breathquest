@@ -70,6 +70,8 @@ export default function ClapGame(_: Props) {
   const bgTimeRef = useRef<number>(0);
   // Player visual rotation (for rolling feel)
   const playerRotRef = useRef<number>(0);
+  // Jump hold (for variable jump height). Space can hold; claps simulate brief hold
+  const isJumpHeldRef = useRef<boolean>(false);
 
   const spawnObstacle = (force?: 'low' | 'target' | 'barrier') => {
     if (force === 'barrier') {
@@ -259,9 +261,8 @@ export default function ClapGame(_: Props) {
     analyserRef.current = null;
   };
 
-  const GRAVITY_PER_MS = 0.0012; // slightly less gravity → slower fall
-  const JUMP_IMPULSE = 0.75; // stronger impulse so mid-air taps add noticeable lift
-  const MAX_ASCENT_VELOCITY = 1.5; // cap upward velocity so spam feels controlled
+  const GRAVITY_PER_MS = 0.0009; // even less gravity → slower fall
+  const JUMP_IMPULSE = 0.6; // smaller single-tap jump; stacks with multiple taps
   const SPEED_MULTIPLIER = 1.2; // slower overall pace
 
   const updateGame = (dt: number, canvasWidth: number, canvasHeight: number) => {
@@ -283,8 +284,9 @@ export default function ClapGame(_: Props) {
       if (Math.random() < 0.003) spawnObstacle();
     }
 
-    // gravity / jump
-    playerVyRef.current -= GRAVITY_PER_MS * dt; // gravity pulls down (y is height)
+    // gravity / jump – handled below with variable gravity section
+    // Integrate position after we compute gravity below
+    playerVyRef.current -= GRAVITY_PER_MS * dt;
     // Allow higher multi-jumps (was capped at 1.2 = ~120px). Raise to 2.0 (~200px)
     playerYRef.current = Math.min(2.0, Math.max(0, playerYRef.current + playerVyRef.current));
     if (playerYRef.current === 0 && playerVyRef.current < 0) playerVyRef.current = 0;
@@ -295,13 +297,15 @@ export default function ClapGame(_: Props) {
     const rollingFactor = 0.002 * dt * (0.6 + (phase === 'running' ? SPEED_MULTIPLIER : 0.4));
     playerRotRef.current += rollingFactor + (-playerVyRef.current * 0.02);
 
-    // Apex damping (floaty feel near the top);
-    if (playerVyRef.current > 0) {
-      playerVyRef.current *= 0.995; // tiny damping while ascending
-    } else {
-      // Slow the fall slightly
-      playerVyRef.current *= 0.998; // gentle air resistance on descent
-    }
+    // Variable gravity: hold to float a bit longer, fall is gentler for control
+    const ascending = playerVyRef.current > 0;
+    const gravityScale = ascending
+      ? (isJumpHeldRef.current ? 0.55 : 1.0)
+      : 0.85; // slower descent
+    playerVyRef.current -= GRAVITY_PER_MS * dt * gravityScale;
+    // Integrate position with higher ceiling for stacked jumps
+    playerYRef.current = Math.min(6.0, Math.max(0, playerYRef.current + playerVyRef.current));
+    if (playerYRef.current === 0 && playerVyRef.current < 0) playerVyRef.current = 0;
 
     // actions
     while (actionQueueRef.current.length > 0) {
@@ -309,7 +313,10 @@ export default function ClapGame(_: Props) {
       if (action === 'JUMP') {
         // Multi-jump allowed! Can jump anytime
         // Add impulse and cap upward velocity so repeated taps stack but stay controllable
-        playerVyRef.current = Math.min(playerVyRef.current + JUMP_IMPULSE, MAX_ASCENT_VELOCITY);
+        playerVyRef.current = playerVyRef.current + JUMP_IMPULSE;
+        // Simulate a short hold for clap input to get variable height feel
+        isJumpHeldRef.current = true;
+        setTimeout(() => { isJumpHeldRef.current = false; }, 200);
           // Jump particle effect
           for (let i = 0; i < 8; i++) {
             particlesRef.current.push({ 
@@ -453,36 +460,31 @@ export default function ClapGame(_: Props) {
       const pr = 16 - 4;
       for (const o of obstaclesRef.current) {
         if (o.type !== 'target') continue;
-        const ox = o.x;
-        const oy = canvasHeight - 20 - (100 + o.y);
-        const ow = o.w;
-        const oh = o.h;
-        if (px + pr > ox && px - pr < ox + ow && py + pr > oy && py - pr < oy + oh) {
-          const cx = Math.max(ox, Math.min(px, ox + ow));
-          const cy = Math.max(oy, Math.min(py, oy + oh));
-          const dx = px - cx;
-          const dy = py - cy;
-          if (dx * dx + dy * dy < pr * pr) {
-            // Collect orb → add points + sparkle
-            setScore(s => s + 20);
-            // sparkle
-            for (let i = 0; i < 16; i++) {
-              const ang = Math.random() * Math.PI * 2;
-              const sp = 0.4 + Math.random() * 0.6;
-              particlesRef.current.push({
-                x: ox + ow / 2,
-                y: oy + oh / 2,
-                vx: Math.cos(ang) * sp,
-                vy: Math.sin(ang) * sp,
-                life: 500 + Math.random() * 400,
-                color: '#66ccff',
-                size: 1 + Math.random() * 2,
-              });
-            }
-            // remove orb
-            const idx = obstaclesRef.current.indexOf(o);
-            if (idx >= 0) obstaclesRef.current.splice(idx, 1);
+        const cx = o.x + o.w / 2;
+        const cy = canvasHeight - 20 - (100 + o.y) + o.h / 2;
+        const R = Math.min(o.w, o.h) / 2 + 12; // more generous pickup radius
+        const dx = px - cx;
+        const dy = py - cy;
+        if (dx * dx + dy * dy < (pr + R) * (pr + R)) {
+          // Collect orb → add points + sparkle
+          setScore(s => s + 100);
+          // sparkle
+          for (let i = 0; i < 16; i++) {
+            const ang = Math.random() * Math.PI * 2;
+            const sp = 0.4 + Math.random() * 0.6;
+            particlesRef.current.push({
+              x: cx,
+              y: cy,
+              vx: Math.cos(ang) * sp,
+              vy: Math.sin(ang) * sp,
+              life: 500 + Math.random() * 400,
+              color: '#66ccff',
+              size: 1 + Math.random() * 2,
+            });
           }
+          // remove orb
+          const idx = obstaclesRef.current.indexOf(o);
+          if (idx >= 0) obstaclesRef.current.splice(idx, 1);
         }
       }
     }
@@ -662,6 +664,18 @@ export default function ClapGame(_: Props) {
     ctx.translate(60, py - 16);
     ctx.scale(1 / squash, squash); // squash effect
     ctx.rotate(playerRotRef.current); // rolling feel
+    
+    // Dynamic ground shadow (smaller/lighter when higher)
+    const heightNorm = Math.min(1, playerYRef.current / 6.0);
+    const shadowScale = 1 - 0.7 * heightNorm; // 1.0 → 0.3
+    const shadowAlpha = 0.35 * (1 - heightNorm) + 0.05;
+    ctx.save();
+    ctx.globalAlpha = shadowAlpha;
+    ctx.fillStyle = '#000000';
+    ctx.beginPath();
+    ctx.ellipse(60, height - 14, 22 * shadowScale, 6 * shadowScale, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
     
     // Player glow effect
     ctx.shadowColor = '#00ff88';
@@ -909,7 +923,7 @@ export default function ClapGame(_: Props) {
           ctx.fillText(`x${multiplier.toFixed(1)}`, width - 130, height - 20);
         }
         
-        // Level indicator in TOP RIGHT
+        // Level indicator in TOP CENTER
         const currentLevel = Math.floor(score / 1000) + 1;
         const levelProgress = (score % 1000) / 1000;
         
@@ -919,7 +933,7 @@ export default function ClapGame(_: Props) {
           // Level up celebration!
           for (let i = 0; i < 50; i++) {
             particlesRef.current.push({ 
-              x: width - 70, y: 25, 
+              x: width / 2, y: 25, 
               vx: (Math.random() - 0.5) * 1.0, 
               vy: (Math.random() - 0.5) * 1.0, 
               life: 1500, 
@@ -935,14 +949,15 @@ export default function ClapGame(_: Props) {
         ctx.fillStyle = currentLevel <= 10 ? '#00ff88' : '#ffaa00';
         ctx.font = 'bold 16px system-ui';
         const levelText = currentLevel <= 10 ? `Level ${currentLevel}` : 'MAX LEVEL';
-        ctx.fillText(levelText, width - 120, 25);
+        const levelWidth = ctx.measureText(levelText).width;
+        ctx.fillText(levelText, width / 2 - levelWidth / 2, 25);
         
         // Level progress bar
         if (currentLevel <= 10) {
           ctx.fillStyle = 'rgba(0, 255, 136, 0.3)';
-          ctx.fillRect(width - 120, 30, 100, 8);
+          ctx.fillRect(width / 2 - 50, 30, 100, 8);
           ctx.fillStyle = '#00ff88';
-          ctx.fillRect(width - 120, 30, 100 * levelProgress, 8);
+          ctx.fillRect(width / 2 - 50, 30, 100 * levelProgress, 8);
         }
         
         // Special ability cooldown indicator
@@ -1090,14 +1105,21 @@ export default function ClapGame(_: Props) {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.code === 'Space') {
         e.preventDefault();
+        isJumpHeldRef.current = true;
         if (phase === 'running' || phase.startsWith('onboarding')) {
           actionQueueRef.current.push('JUMP');
         }
       }
     };
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        isJumpHeldRef.current = false;
+      }
+    };
     
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => { window.removeEventListener('keydown', handleKeyDown); window.removeEventListener('keyup', handleKeyUp); };
   }, [phase]);
 
 
