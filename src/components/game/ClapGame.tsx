@@ -16,6 +16,13 @@ export default function ClapGame(_: Props) {
   const [score, setScore] = useState(0);
   const [lives, setLives] = useState(3);
   const [multiplier, setMultiplier] = useState(1);
+  const [highScore, setHighScore] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const v = parseInt(localStorage.getItem('clapquest-highscore') || '0', 10);
+      return Number.isFinite(v) ? v : 0;
+    }
+    return 0;
+  });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [phase, setPhase] = useState<Phase>('onboarding1');
   const phaseRef = useRef<Phase>('onboarding1');
@@ -52,6 +59,8 @@ export default function ClapGame(_: Props) {
   const particlesRef = useRef<{ x: number; y: number; vx: number; vy: number; life: number; color: string; size: number }[]>([]);
   const shakeRef = useRef<{ t: number; mag: number }>({ t: 0, mag: 0 });
   const starsRef = useRef<{ x: number; y: number; s: number }[] | null>(null);
+  // Soft drifting clouds (background layer)
+  const cloudsRef = useRef<{ x: number; y: number; w: number; h: number; speed: number; alpha: number }[] | null>(null);
   const [paused, setPaused] = useState(false);
   const [sfxEnabled, setSfxEnabled] = useState(true);
   const [musicEnabled, setMusicEnabled] = useState(false);
@@ -250,8 +259,9 @@ export default function ClapGame(_: Props) {
     analyserRef.current = null;
   };
 
-  const GRAVITY_PER_MS = 0.0015; // slower falling for better control
-  const JUMP_IMPULSE = 0.5; // higher jumps for better feel
+  const GRAVITY_PER_MS = 0.0012; // slightly less gravity → slower fall
+  const JUMP_IMPULSE = 0.75; // stronger impulse so mid-air taps add noticeable lift
+  const MAX_ASCENT_VELOCITY = 1.5; // cap upward velocity so spam feels controlled
   const SPEED_MULTIPLIER = 1.2; // slower overall pace
 
   const updateGame = (dt: number, canvasWidth: number, canvasHeight: number) => {
@@ -275,7 +285,8 @@ export default function ClapGame(_: Props) {
 
     // gravity / jump
     playerVyRef.current -= GRAVITY_PER_MS * dt; // gravity pulls down (y is height)
-    playerYRef.current = Math.min(1.2, Math.max(0, playerYRef.current + playerVyRef.current));
+    // Allow higher multi-jumps (was capped at 1.2 = ~120px). Raise to 2.0 (~200px)
+    playerYRef.current = Math.min(2.0, Math.max(0, playerYRef.current + playerVyRef.current));
     if (playerYRef.current === 0 && playerVyRef.current < 0) playerVyRef.current = 0;
 
     cooldownRef.current = Math.max(0, cooldownRef.current - dt);
@@ -284,12 +295,21 @@ export default function ClapGame(_: Props) {
     const rollingFactor = 0.002 * dt * (0.6 + (phase === 'running' ? SPEED_MULTIPLIER : 0.4));
     playerRotRef.current += rollingFactor + (-playerVyRef.current * 0.02);
 
+    // Apex damping (floaty feel near the top);
+    if (playerVyRef.current > 0) {
+      playerVyRef.current *= 0.995; // tiny damping while ascending
+    } else {
+      // Slow the fall slightly
+      playerVyRef.current *= 0.998; // gentle air resistance on descent
+    }
+
     // actions
     while (actionQueueRef.current.length > 0) {
       const action = actionQueueRef.current.shift()!;
       if (action === 'JUMP') {
         // Multi-jump allowed! Can jump anytime
-        playerVyRef.current += JUMP_IMPULSE; // Add to velocity for continuous jumping
+        // Add impulse and cap upward velocity so repeated taps stack but stay controllable
+        playerVyRef.current = Math.min(playerVyRef.current + JUMP_IMPULSE, MAX_ASCENT_VELOCITY);
           // Jump particle effect
           for (let i = 0; i < 8; i++) {
             particlesRef.current.push({ 
@@ -350,6 +370,26 @@ export default function ClapGame(_: Props) {
     const gameSpeed = phase === 'running' ? SPEED_MULTIPLIER : 0.5; // slower during onboarding
     obstaclesRef.current.forEach(o => { o.x -= 0.3 * gameSpeed * dt; });
     obstaclesRef.current = obstaclesRef.current.filter(o => o.x > -60);
+    // background clouds drift
+    if (!cloudsRef.current) {
+      const arr: { x: number; y: number; w: number; h: number; speed: number; alpha: number }[] = [];
+      for (let i = 0; i < 8; i++) {
+        arr.push({
+          x: Math.random() * canvasWidth,
+          y: Math.random() * (canvasHeight * 0.35) + 10,
+          w: 60 + Math.random() * 90,
+          h: 20 + Math.random() * 20,
+          speed: 0.02 + Math.random() * 0.05,
+          alpha: 0.05 + Math.random() * 0.07,
+        });
+      }
+      cloudsRef.current = arr;
+    } else {
+      cloudsRef.current.forEach(c => {
+        c.x -= c.speed * dt * 16;
+        if (c.x + c.w < -40) c.x = canvasWidth + 40;
+      });
+    }
 
     // move projectiles and hit targets - faster projectiles
     projectilesRef.current.forEach(p => { p.x += p.vx * gameSpeed * dt; });
@@ -406,14 +446,55 @@ export default function ClapGame(_: Props) {
       }
     }
 
+    // PLAYER PICKUPS (blue orbs)
+    if (phase === 'running' && obstaclesRef.current.length > 0) {
+      const px = 60;
+      const py = canvasHeight - 20 - (playerYRef.current * 100) - 16;
+      const pr = 16 - 4;
+      for (const o of obstaclesRef.current) {
+        if (o.type !== 'target') continue;
+        const ox = o.x;
+        const oy = canvasHeight - 20 - (100 + o.y);
+        const ow = o.w;
+        const oh = o.h;
+        if (px + pr > ox && px - pr < ox + ow && py + pr > oy && py - pr < oy + oh) {
+          const cx = Math.max(ox, Math.min(px, ox + ow));
+          const cy = Math.max(oy, Math.min(py, oy + oh));
+          const dx = px - cx;
+          const dy = py - cy;
+          if (dx * dx + dy * dy < pr * pr) {
+            // Collect orb → add points + sparkle
+            setScore(s => s + 20);
+            // sparkle
+            for (let i = 0; i < 16; i++) {
+              const ang = Math.random() * Math.PI * 2;
+              const sp = 0.4 + Math.random() * 0.6;
+              particlesRef.current.push({
+                x: ox + ow / 2,
+                y: oy + oh / 2,
+                vx: Math.cos(ang) * sp,
+                vy: Math.sin(ang) * sp,
+                life: 500 + Math.random() * 400,
+                color: '#66ccff',
+                size: 1 + Math.random() * 2,
+              });
+            }
+            // remove orb
+            const idx = obstaclesRef.current.indexOf(o);
+            if (idx >= 0) obstaclesRef.current.splice(idx, 1);
+          }
+        }
+      }
+    }
+
     // COLLISION DETECTION - EXACT reference game logic
-    if ((phase === 'running' || phase === 'ready') && obstaclesRef.current.length > 0) {
+    if (phase === 'running' && obstaclesRef.current.length > 0) {
       const px = 60; // player x
       const py = canvasHeight - 20 - (playerYRef.current * 100) - 16; // player y  
       const pr = 16 - 4; // player radius with tolerance like reference
       
       for (const o of obstaclesRef.current) {
-        if (o.type === 'target') continue; // targets don't damage player
+        if (o.type === 'target') continue; // orbs handled as pickups above
         
         // Calculate obstacle position - ground obstacles
         const ox = o.x;
@@ -521,6 +602,21 @@ export default function ClapGame(_: Props) {
     grad.addColorStop(1, 'rgba(12,12,16,1)');
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, width, height);
+    // soft clouds layer
+    if (cloudsRef.current) {
+      cloudsRef.current.forEach(c => {
+        ctx.globalAlpha = c.alpha;
+        const r = 6;
+        ctx.fillStyle = '#ffffff';
+        // simple rounded cloud shape
+        ctx.beginPath();
+        ctx.ellipse(c.x, c.y, c.w * 0.4, c.h * 0.6, 0, 0, Math.PI * 2);
+        ctx.ellipse(c.x + c.w * 0.3, c.y + 2, c.w * 0.3, c.h * 0.5, 0, 0, Math.PI * 2);
+        ctx.ellipse(c.x - c.w * 0.3, c.y + 2, c.w * 0.3, c.h * 0.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      });
+    }
     // stars (generated once)
     if (!starsRef.current) {
       const arr: { x: number; y: number; s: number }[] = [];
@@ -683,28 +779,24 @@ export default function ClapGame(_: Props) {
     // obstacles/targets with enhanced graphics
     obstaclesRef.current.forEach(o => {
       if (o.type === 'low') {
-        // Small ground obstacles - spiky and dangerous looking
-        const obstacleX = o.x;
-        const obstacleY = height - 20 - o.h;
-        
-        // Main body
-        ctx.fillStyle = '#ff6600';
-        ctx.fillRect(obstacleX, obstacleY, o.w, o.h);
-        
-        // Spikes on top
-        ctx.fillStyle = '#ff3300';
-        for (let i = 0; i < o.w; i += 4) {
-          ctx.beginPath();
-          ctx.moveTo(obstacleX + i, obstacleY);
-          ctx.lineTo(obstacleX + i + 2, obstacleY - 6);
-          ctx.lineTo(obstacleX + i + 4, obstacleY);
-          ctx.fill();
+        // Rounded cute block
+        const x = o.x; const y = height - 20 - o.h;
+        const r = 6;
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.arcTo(x + o.w, y, x + o.w, y + o.h, r);
+        ctx.arcTo(x + o.w, y + o.h, x, y + o.h, r);
+        ctx.arcTo(x, y + o.h, x, y, r);
+        ctx.arcTo(x, y, x + o.w, y, r);
+        const gradBlock = ctx.createLinearGradient(0, y, 0, y + o.h);
+        gradBlock.addColorStop(0, '#ffb4a1'); gradBlock.addColorStop(1, '#ff6c4c');
+        ctx.fillStyle = gradBlock; ctx.fill();
+        // tiny face sometimes
+        if (Math.random() < 0.25 && o.w > 18) {
+          ctx.fillStyle = '#2b2b2b';
+          ctx.beginPath(); ctx.arc(x + o.w * 0.35, y + o.h * 0.4, 2, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(x + o.w * 0.65, y + o.h * 0.4, 2, 0, Math.PI * 2); ctx.fill();
         }
-        
-        // Outline
-        ctx.strokeStyle = '#cc2200';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(obstacleX, obstacleY, o.w, o.h);
       } else if (o.type === 'barrier') {
         // Tall barriers - MUST be shot to pass!
         const barrierX = o.x;
@@ -734,25 +826,19 @@ export default function ClapGame(_: Props) {
         ctx.font = 'bold 8px system-ui';
         ctx.fillText('!', barrierX + o.w/2 - 2, barrierY + 15);
       } else {
-        // Air targets - glowing and shootable (bonus points)
-        const targetX = o.x;
-        const targetY = height - 20 - (100 + o.y);
-        
-        // Glow effect
-        ctx.shadowColor = '#4488ff';
-        ctx.shadowBlur = 10;
-        ctx.fillStyle = '#6699ff';
-        ctx.fillRect(targetX, targetY, o.w, o.h);
-        
-        // Inner core
-        ctx.shadowBlur = 0;
-        ctx.fillStyle = '#88bbff';
-        ctx.fillRect(targetX + 2, targetY + 2, o.w - 4, o.h - 4);
-        
-        // Pulsing center
+        // Air orbs - glowing blue pickups
+        const cx = o.x + o.w / 2; const cy = height - 20 - (100 + o.y) + o.h / 2;
+        const R = Math.min(o.w, o.h) / 2;
         const pulse = Math.sin(performance.now() * 0.01) * 0.5 + 0.5;
-        ctx.fillStyle = `rgba(255, 255, 255, ${pulse * 0.8})`;
-        ctx.fillRect(targetX + 6, targetY + 6, o.w - 12, o.h - 12);
+        const orbGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, R + 8);
+        orbGrad.addColorStop(0, `rgba(120,180,255,${0.6 + pulse * 0.2})`);
+        orbGrad.addColorStop(1, 'rgba(120,180,255,0)');
+        ctx.fillStyle = orbGrad;
+        ctx.beginPath(); ctx.arc(cx, cy, R + 8, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#66aaff';
+        ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#cfe6ff';
+        ctx.beginPath(); ctx.arc(cx - R * 0.25, cy - R * 0.25, R * 0.35, 0, Math.PI * 2); ctx.fill();
       }
     });
 
@@ -811,6 +897,9 @@ export default function ClapGame(_: Props) {
       ctx.fillStyle = '#fff';
       ctx.font = 'bold 16px system-ui';
       ctx.fillText(`Score: ${score}`, width - 130, height - 40);
+      ctx.fillStyle = '#aaa';
+      ctx.font = 'bold 12px system-ui';
+      ctx.fillText(`Best: ${highScore}`, width - 130, height - 58);
       
       if (phase === 'running') {
         // Score multiplier only in running phase
@@ -982,6 +1071,19 @@ export default function ClapGame(_: Props) {
   }, []);
 
   useEffect(() => () => stopListening(), []);
+
+  // Persist best score whenever we reach game over with a new record
+  useEffect(() => {
+    if (phase === 'gameover') {
+      setHighScore(prev => {
+        const next = score > prev ? score : prev;
+        if (next !== prev && typeof window !== 'undefined') {
+          localStorage.setItem('clapquest-highscore', String(next));
+        }
+        return next;
+      });
+    }
+  }, [phase, score]);
 
   // Keyboard controls - space bar for jump
   useEffect(() => {
