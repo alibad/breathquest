@@ -56,6 +56,7 @@ export default function ClapGame(_: Props) {
   const [sfxEnabled, setSfxEnabled] = useState(true);
   const [musicEnabled, setMusicEnabled] = useState(false);
   const sfxCtxRef = useRef<AudioContext | null>(null);
+  const lastScoreTimeRef = useRef(0);
 
   const spawnObstacle = (force?: 'low' | 'target' | 'barrier') => {
     if (force === 'barrier') {
@@ -201,11 +202,23 @@ export default function ClapGame(_: Props) {
     analyserRef.current = null;
   };
 
-  const GRAVITY_PER_MS = 0.0025; // more snappy gravity like reference game
+  const GRAVITY_PER_MS = 0.0015; // slower falling for better control
   const JUMP_IMPULSE = 0.5; // higher jumps for better feel
   const SPEED_MULTIPLIER = 1.8; // faster game pace
 
   const updateGame = (dt: number, canvasWidth: number, canvasHeight: number) => {
+    // Automatic scoring - 10 points per second during running phase
+    if (phase === 'running') {
+      const now = performance.now();
+      if (lastScoreTimeRef.current === 0) {
+        lastScoreTimeRef.current = now; // Initialize on first run
+      }
+      if (now - lastScoreTimeRef.current >= 1000) { // 1 second
+        setScore(s => s + 10);
+        lastScoreTimeRef.current = now;
+      }
+    }
+    
     // Spawn light guidance visuals during onboarding
     if (phase === 'onboarding1' || phase === 'onboarding2' || phase === 'onboarding3') {
       // slow demo spawns, but non-fatal
@@ -223,8 +236,8 @@ export default function ClapGame(_: Props) {
     while (actionQueueRef.current.length > 0) {
       const action = actionQueueRef.current.shift()!;
       if (action === 'JUMP') {
-        if (playerYRef.current < 0.1) {
-          playerVyRef.current = JUMP_IMPULSE; // jump impulse
+        // Multi-jump allowed! Can jump anytime
+        playerVyRef.current += JUMP_IMPULSE; // Add to velocity for continuous jumping
           // Jump particle effect
           for (let i = 0; i < 8; i++) {
             particlesRef.current.push({ 
@@ -238,7 +251,6 @@ export default function ClapGame(_: Props) {
             });
           }
           playSfx(550, 40);
-        }
       } else if (action === 'FIRE') {
         // spawn projectile from player
         const startY = 16 + playerYRef.current * 100 - 12;
@@ -342,12 +354,11 @@ export default function ClapGame(_: Props) {
       }
     }
 
-    // Enhanced collision detection - only if game is running and mic is enabled
-    console.log(`🔍 COLLISION CHECK: phase=${phase}, hasAnalyser=${!!analyserRef.current}, isListening=${isListeningRef.current}, obstacles=${obstaclesRef.current.length}`);
-    if (obstaclesRef.current.length > 0) { // Simplified: check collision if there are obstacles
+    // Enhanced collision detection - only if game is running 
+    if (phase === 'running' && obstaclesRef.current.length > 0) {
       const playerX = 60;
-      const radius = 14; // Slightly larger hitbox for better game feel
-      const playerY = canvasHeight - 20 - (playerYRef.current * 100) + 16; // Match rendering coordinates
+      const radius = 16; // Slightly larger hitbox for better game feel
+      const playerY = canvasHeight - 20 - (playerYRef.current * 100) - 16; // Match rendering coordinates
       let collided = false;
       let collidedObstacle = null;
       
@@ -355,29 +366,23 @@ export default function ClapGame(_: Props) {
         if (o.type === 'target') continue; // targets don't damage player
         // Both 'low' and 'barrier' obstacles can damage the player
         
-        // Match the obstacle coordinates from rendering: canvasHeight - 20 - o.h
-        const obstacleLeft = o.x;
-        const obstacleRight = o.x + o.w;
-        const obstacleTop = canvasHeight - 20 - o.h;
-        const obstacleBottom = canvasHeight - 20;
+        // Calculate obstacle position based on type
+        let obstacleY = 0;
+        if (o.type === 'low' || o.type === 'barrier') {
+          obstacleY = canvasHeight - 20 - o.h; // Ground obstacles
+        } else {
+          obstacleY = canvasHeight - 20 - (100 + o.y); // Air targets
+        }
         
-        // Circle vs Rectangle collision
-        const nearestX = Math.max(obstacleLeft, Math.min(playerX, obstacleRight));
-        const nearestY = Math.max(obstacleTop, Math.min(playerY, obstacleBottom));
-        const dx = playerX - nearestX; 
-        const dy = playerY - nearestY;
+        // Simple circle vs rectangle collision
+        const dx = playerX - Math.max(o.x, Math.min(playerX, o.x + o.w));
+        const dy = playerY - Math.max(obstacleY, Math.min(playerY, obstacleY + o.h));
         
         if (dx * dx + dy * dy <= radius * radius) { 
           collided = true; 
           collidedObstacle = o;
-          console.log(`🔥 COLLISION! Player: (${playerX}, ${playerY}) vs Obstacle: (${o.x}, ${obstacleTop}-${obstacleBottom}), Distance: ${Math.sqrt(dx*dx + dy*dy)}, Radius: ${radius}`);
+          console.log(`💥 COLLISION! Player at (60, ${playerY}) hit ${o.type} obstacle at (${o.x}, ${obstacleY}). Lives: ${lives} -> ${lives - 1}`);
           break; 
-        } else {
-          // Debug: Show near misses  
-          const distance = Math.sqrt(dx*dx + dy*dy);
-          if (distance < radius + 10) {
-            console.log(`⚠️ NEAR MISS: Player: (${playerX}, ${playerY}) vs Obstacle: (${o.x}, ${obstacleTop}-${obstacleBottom}), Distance: ${distance.toFixed(1)}, Radius: ${radius}`);
-          }
         }
       }
       if (collided) {
@@ -503,21 +508,80 @@ export default function ClapGame(_: Props) {
     // player - bigger, more dynamic like reference game
     const py = height - 20 - (playerYRef.current * 100);
     const squash = Math.max(0.8, 1 - Math.abs(playerVyRef.current) * 2); // squash/stretch effect
+    
+    ctx.save();
+    ctx.translate(60, py - 16);
+    ctx.scale(1 / squash, squash); // squash effect
+    
+    // Player glow effect
+    ctx.shadowColor = '#00ff88';
+    ctx.shadowBlur = 12;
     ctx.fillStyle = '#00ff88';
     ctx.beginPath();
-    ctx.save();
-    ctx.scale(1 / squash, squash); // squash effect
-    ctx.arc(60 * squash, (py - 16) / squash, 16, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-    
-    // add glow effect
-    ctx.shadowColor = '#00ff88';
-    ctx.shadowBlur = 8;
-    ctx.beginPath();
-    ctx.arc(60, py - 16, 14, 0, Math.PI * 2);
+    ctx.arc(0, 0, 16, 0, Math.PI * 2);
     ctx.fill();
     ctx.shadowBlur = 0;
+    
+    // Player body
+    ctx.fillStyle = '#00ff96';
+    ctx.beginPath();
+    ctx.arc(0, 0, 16, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Player eyes
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(-6, -4, 3, 0, Math.PI * 2); // left eye
+    ctx.arc(6, -4, 3, 0, Math.PI * 2);  // right eye
+    ctx.fill();
+    
+    // Eye pupils
+    ctx.fillStyle = '#000000';
+    ctx.beginPath();
+    ctx.arc(-6, -4, 1.5, 0, Math.PI * 2); // left pupil
+    ctx.arc(6, -4, 1.5, 0, Math.PI * 2);  // right pupil
+    ctx.fill();
+    
+    // Player mouth (happy when jumping, neutral otherwise)
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    if (playerVyRef.current > 0) {
+      // Happy mouth when jumping up
+      ctx.arc(0, 4, 6, 0, Math.PI);
+    } else {
+      // Neutral mouth
+      ctx.arc(0, 6, 4, 0, Math.PI);
+    }
+    ctx.stroke();
+    
+    ctx.restore();
+
+    // DEBUG: Show collision hitboxes (temporarily visible)
+    if (phase === 'running') {
+      // Player hitbox
+      ctx.strokeStyle = '#ff00ff';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(60, py - 16, 16, 0, Math.PI * 2);
+      ctx.stroke();
+      
+      // Obstacle hitboxes
+      obstaclesRef.current.forEach(o => {
+        if (o.type === 'target') return; // targets don't damage player
+        
+        let obstacleY = 0;
+        if (o.type === 'low' || o.type === 'barrier') {
+          obstacleY = height - 20 - o.h; // Ground obstacles
+        } else {
+          obstacleY = height - 20 - (100 + o.y); // Air targets
+        }
+        
+        ctx.strokeStyle = '#ff0000';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(o.x, obstacleY, o.w, o.h);
+      });
+    }
 
     // Show sample obstacles during onboarding for demonstration (only if mic is enabled)
     if ((phase.startsWith('onboarding') || phase === 'ready') && isListening) {
@@ -841,8 +905,8 @@ export default function ClapGame(_: Props) {
       }
     }
 
-    // update - only if not paused
-    if (!paused) {
+    // update - only if not paused and not game over
+    if (!paused && phase !== 'gameover') {
       const last = lastTsRef.current || ts;
       const dt = Math.min(50, ts - last);
       lastTsRef.current = ts;
@@ -888,6 +952,21 @@ export default function ClapGame(_: Props) {
   }, []);
 
   useEffect(() => () => stopListening(), []);
+
+  // Keyboard controls - space bar for jump
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        if (phase === 'running' || phase.startsWith('onboarding')) {
+          actionQueueRef.current.push('JUMP');
+        }
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [phase]);
 
 
 
@@ -1246,8 +1325,19 @@ export default function ClapGame(_: Props) {
               <div style={{ fontWeight: 800, marginBottom: '0.5rem' }}>Game Over</div>
               <div style={{ color: '#ccc', marginBottom: '0.6rem' }}>Score: {score}</div>
               <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
-                <button onClick={() => { setScore(0); setLives(3); setMultiplier(1); obstaclesRef.current = []; setPhase('onboarding1'); setProgress(0); }} style={{ padding: '0.5rem 0.9rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.06)', color: '#fff', cursor: 'pointer' }}>Retry</button>
-                <button onClick={() => { setPhase('onboarding3'); setProgress(0); }} style={{ padding: '0.5rem 0.9rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.06)', color: '#fff', cursor: 'pointer', marginLeft: '0.5rem' }}>Skip to Phase 3</button>
+                <button onClick={() => { 
+                  setScore(0); 
+                  setLives(3); 
+                  setMultiplier(1); 
+                  obstaclesRef.current = []; 
+                  projectilesRef.current = [];
+                  particlesRef.current = [];
+                  setPhase('onboarding1'); 
+                  setProgress(0);
+                  lastScoreTimeRef.current = 0;
+                  playerYRef.current = 0;
+                  playerVyRef.current = 0;
+                }} style={{ padding: '0.5rem 0.9rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.06)', color: '#fff', cursor: 'pointer' }}>Retry</button>
               </div>
             </div>
           </div>
