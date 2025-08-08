@@ -2,7 +2,7 @@
 
 import React, { ReactNode } from 'react';
 
-export default function HypothesisTwoLayout({ children }: { children: ReactNode }) {
+export default function HypothesisThreeLayout({ children }: { children: ReactNode }) {
   return (
     <div className="container" style={{ paddingTop: '3.5rem', paddingBottom: '3rem' }}>
       <h1 style={{
@@ -14,10 +14,10 @@ export default function HypothesisTwoLayout({ children }: { children: ReactNode 
         fontWeight: 800,
         marginBottom: '1rem'
       }}>
-        Hypothesis #2 — Clap Pattern Control (Done)
+        Hypothesis #3 — Fun Sound Game (In Progress)
       </h1>
       <p style={{ color: '#cccccc', marginBottom: '1.5rem' }}>
-        Testing whether intentional, percussive claps and their timing patterns can power robust, fun, noise‑resistant real‑time gameplay.
+        Build a fun, expressive mini‑game powered by simple sounds. We start with claps (SINGLE/DOUBLE/TRIPLE) and may add voice controls next.
       </p>
       {children}
     </div>

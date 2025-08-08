@@ -1,0 +1,1204 @@
+'use client';
+
+import React, { useEffect, useRef, useState } from 'react';
+import { ClapDetector } from '../clap/ClapDetector';
+import { ClapPatternMatcher, type ClapEvent } from '../clap/ClapPatternMatcher';
+
+type Action = 'JUMP' | 'FIRE' | 'SPECIAL';
+type Phase = 'onboarding1' | 'onboarding2' | 'onboarding3' | 'ready' | 'running' | 'gameover';
+
+interface Props {}
+
+export default function ClapGame(_: Props) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const stageRef = useRef<HTMLDivElement | null>(null);
+  const [isListening, setIsListening] = useState(false);
+  const [score, setScore] = useState(0);
+  const [lives, setLives] = useState(3);
+  const [multiplier, setMultiplier] = useState(1);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [phase, setPhase] = useState<Phase>('onboarding1');
+  const phaseRef = useRef<Phase>('onboarding1');
+  
+  // Update matcher phase when game phase changes
+  useEffect(() => {
+    phaseRef.current = phase;
+    if (matcherRef.current) {
+      matcherRef.current.setPhase(phase);
+    }
+  }, [phase]);
+  const [progress, setProgress] = useState<number>(0);
+
+  // audio
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const dataArrayRef = useRef<Uint8Array | null>(null);
+  const timeArrayRef = useRef<Uint8Array | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const detectorRef = useRef<ClapDetector | null>(null);
+  const matcherRef = useRef<ClapPatternMatcher | null>(null);
+
+  // game state
+  const actionQueueRef = useRef<Action[]>([]);
+  const lastTsRef = useRef<number>(0);
+  const playerYRef = useRef<number>(0);
+  const playerVyRef = useRef<number>(0);
+  const cooldownRef = useRef<number>(0);
+  const obstaclesRef = useRef<{ x: number; y: number; w: number; h: number; type: 'low' | 'target' }[]>([]);
+  const projectilesRef = useRef<{ x: number; y: number; vx: number }[]>([]);
+  const particlesRef = useRef<{ x: number; y: number; vx: number; vy: number; life: number; color: string; size: number }[]>([]);
+  const shakeRef = useRef<{ t: number; mag: number }>({ t: 0, mag: 0 });
+  const starsRef = useRef<{ x: number; y: number; s: number }[] | null>(null);
+  const [paused, setPaused] = useState(false);
+  const [sfxEnabled, setSfxEnabled] = useState(true);
+  const [musicEnabled, setMusicEnabled] = useState(false);
+  const sfxCtxRef = useRef<AudioContext | null>(null);
+
+  const spawnObstacle = (force?: 'low' | 'target' | 'barrier') => {
+    if (force === 'barrier') {
+      // Tall barriers that MUST be shot to pass
+      obstaclesRef.current.push({ x: 820, y: 0, w: 25, h: 80, type: 'barrier' });
+      return;
+    }
+    
+    const rand = Math.random();
+    if (force === 'target' || (!force && rand < 0.3)) {
+      // Targets give points and multiplier
+      obstaclesRef.current.push({ x: 820, y: 60 + Math.random() * 40, w: 20, h: 20, type: 'target' });
+    } else if (force === 'low' || (!force && rand < 0.7)) {
+      // Low obstacles to jump over
+      obstaclesRef.current.push({ x: 820, y: 0, w: 25, h: 18 + Math.random() * 12, type: 'low' });
+    } else {
+      // Barriers that block the path - must be shot!
+      obstaclesRef.current.push({ x: 820, y: 0, w: 25, h: 60 + Math.random() * 20, type: 'barrier' });
+    }
+  };
+
+  const enqueueAction = (name: string) => {
+    const currentPhase = phaseRef.current;
+    console.log(`Action enqueued: ${name}, current phase: ${currentPhase}, state phase: ${phase}, current progress: ${progress}`);
+    if (name === 'SINGLE') actionQueueRef.current.push('JUMP');
+    if (name === 'DOUBLE') actionQueueRef.current.push('FIRE');
+    if (name === 'TRIPLE') actionQueueRef.current.push('SPECIAL');
+    // Onboarding progression - allow any pattern to advance if it matches the current goal
+    if (currentPhase === 'onboarding1' && name === 'SINGLE') {
+      console.log('Onboarding1: SINGLE detected');
+      setProgress((p) => {
+        const next = p + 1; 
+        console.log(`Onboarding1 progress: ${p} -> ${next}`);
+        if (next >= 3) { setPhase('onboarding2'); return 0; } return next;
+      });
+    }
+    if (currentPhase === 'onboarding2' && name === 'DOUBLE') {
+      console.log('Onboarding2: DOUBLE detected');
+      setProgress((p) => {
+        const next = p + 1; 
+        console.log(`Onboarding2 progress: ${p} -> ${next}`);
+        if (next >= 3) { setPhase('onboarding3'); return 0; } return next;
+      });
+    }
+    if (currentPhase === 'onboarding3' && name === 'TRIPLE') {
+      console.log('Onboarding3: TRIPLE detected');
+      setProgress((p) => {
+        const next = p + 1; 
+        console.log(`Onboarding3 progress: ${p} -> ${next}`);
+        if (next >= 1) { setPhase('ready'); return 0; } return next;
+      });
+    }
+    
+    // Removed "skipping ahead" logic - onboarding is now strictly linear
+  };
+
+  const playSfx = (freq: number, durationMs: number = 80) => {
+    if (!sfxEnabled) return;
+    try {
+      if (!sfxCtxRef.current) sfxCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const ctx = sfxCtxRef.current;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'square';
+      osc.frequency.value = freq;
+      gain.gain.value = 0.05;
+      osc.connect(gain).connect(ctx.destination);
+      osc.start();
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + durationMs / 1000);
+      osc.stop(ctx.currentTime + durationMs / 1000);
+    } catch {}
+  };
+
+  const startListening = async () => {
+    console.log('startListening called, current isListening:', isListening);
+    if (isListening) return;
+    
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 },
+        video: false
+      } as MediaStreamConstraints);
+      console.log('Got media stream:', stream);
+      
+      mediaStreamRef.current = stream;
+      const ac = new (window.AudioContext || (window as any).webkitAudioContext)();
+      audioContextRef.current = ac;
+      const source = ac.createMediaStreamSource(stream);
+      const analyser = ac.createAnalyser();
+      analyser.fftSize = 1024;
+      analyser.smoothingTimeConstant = 0.05;
+      source.connect(analyser);
+      analyserRef.current = analyser;
+      dataArrayRef.current = new Uint8Array(analyser.frequencyBinCount);
+      timeArrayRef.current = new Uint8Array(analyser.fftSize);
+      detectorRef.current = new ClapDetector();
+      matcherRef.current = new ClapPatternMatcher();
+      
+      console.log('Audio setup complete, setting isListening to true');
+      // Reset timestamp to prevent speed issues when re-enabling mic
+      lastTsRef.current = null;
+      setIsListening(true);
+      // Loop is already running from useEffect, no need to start again
+    } catch (error) {
+      console.error('Error starting audio:', error);
+    }
+  };
+
+  const stopListening = () => {
+    console.log('stopListening called, current isListening:', isListening);
+    setIsListening(false);
+    // Don't stop the loop - keep rendering for onboarding
+    mediaStreamRef.current?.getTracks().forEach(t => t.stop());
+    mediaStreamRef.current = null;
+    analyserRef.current?.disconnect();
+    audioContextRef.current?.close();
+    audioContextRef.current = null;
+    analyserRef.current = null;
+  };
+
+  const GRAVITY_PER_MS = 0.0025; // more snappy gravity like reference game
+  const JUMP_IMPULSE = 0.5; // higher jumps for better feel
+  const SPEED_MULTIPLIER = 1.8; // faster game pace
+
+  const updateGame = (dt: number, canvasWidth: number, canvasHeight: number) => {
+    // Spawn light guidance visuals during onboarding
+    if (phase === 'onboarding1' || phase === 'onboarding2' || phase === 'onboarding3') {
+      // slow demo spawns, but non-fatal
+      if (Math.random() < 0.003) spawnObstacle();
+    }
+
+    // gravity / jump
+    playerVyRef.current -= GRAVITY_PER_MS * dt; // gravity pulls down (y is height)
+    playerYRef.current = Math.min(1.2, Math.max(0, playerYRef.current + playerVyRef.current));
+    if (playerYRef.current === 0 && playerVyRef.current < 0) playerVyRef.current = 0;
+
+    cooldownRef.current = Math.max(0, cooldownRef.current - dt);
+
+    // actions
+    while (actionQueueRef.current.length > 0) {
+      const action = actionQueueRef.current.shift()!;
+      if (action === 'JUMP') {
+        if (playerYRef.current < 0.1) {
+          playerVyRef.current = JUMP_IMPULSE; // jump impulse
+          // Jump particle effect
+          for (let i = 0; i < 8; i++) {
+            particlesRef.current.push({ 
+              x: 60 + (Math.random() - 0.5) * 20, 
+              y: 20, 
+              vx: (Math.random() - 0.5) * 0.4, 
+              vy: Math.random() * 0.3, 
+              life: 300 + Math.random() * 200, 
+              color: '#00ff88', 
+              size: 2 + Math.random() * 2 
+            });
+          }
+          playSfx(550, 40);
+        }
+      } else if (action === 'FIRE') {
+        // spawn projectile from player
+        const startY = 16 + playerYRef.current * 100 - 12;
+        projectilesRef.current.push({ x: 80, y: startY, vx: 0.55 });
+        // Enhanced fire sound effect
+        playSfx(800, 80);
+        setTimeout(() => playSfx(650, 40), 50); // Second harmonic
+        // Fire particle effect
+        for (let i = 0; i < 8; i++) {
+          particlesRef.current.push({ 
+            x: 80, 
+            y: startY, 
+            vx: Math.random() * 0.4 + 0.1, 
+            vy: (Math.random() - 0.5) * 0.4, 
+            life: 300, 
+            color: i < 4 ? '#ff6600' : '#ffaa44', 
+            size: 1 + Math.random() * 1.5
+          });
+        }
+      } else if (action === 'SPECIAL') {
+        if (cooldownRef.current <= 0) {
+          const cleared = obstaclesRef.current.length;
+          obstaclesRef.current = [];
+          setScore(s => s + cleared * 10 + 20);
+          cooldownRef.current = 4000; // ms
+          setMultiplier(1);
+          // burst particles
+          for (let i = 0; i < 60; i++) {
+            particlesRef.current.push({ x: 80, y: 60, vx: (Math.random() * 2 - 1) * 0.6, vy: (Math.random() * 2 - 1) * 0.6, life: 800 + Math.random() * 400, color: '#8b5cf6', size: 2 + Math.random() * 2 });
+          }
+          // Enhanced triple clap sound sequence
+          playSfx(400, 60);
+          setTimeout(() => playSfx(500, 80), 100);
+          setTimeout(() => playSfx(600, 100), 200);
+          setTimeout(() => playSfx(300, 120), 300);
+          // Reset pattern matcher to clear debounce state
+          if (matcherRef.current) {
+            matcherRef.current.reset();
+          }
+        }
+      }
+    }
+
+    // move obstacles - much faster and more dynamic
+    const gameSpeed = phase === 'running' ? SPEED_MULTIPLIER : 0.5; // slower during onboarding
+    obstaclesRef.current.forEach(o => { o.x -= 0.4 * gameSpeed * dt; });
+    obstaclesRef.current = obstaclesRef.current.filter(o => o.x > -60);
+
+    // move projectiles and hit targets - faster projectiles
+    projectilesRef.current.forEach(p => { p.x += p.vx * gameSpeed * dt; });
+    projectilesRef.current = projectilesRef.current.filter(p => p.x < 900);
+    for (const p of projectilesRef.current) {
+      for (const o of obstaclesRef.current) {
+        let hit = false;
+        let hitY = 0;
+        
+        if (o.type === 'target') {
+          // Targets are in the air
+          hitY = 100 + o.y;
+          hit = Math.abs(o.x - p.x) < o.w && Math.abs(hitY - p.y) < o.h;
+        } else if (o.type === 'barrier') {
+          // Barriers are tall ground obstacles
+          hitY = canvasHeight - 20 - o.h/2;
+          hit = Math.abs(o.x - p.x) < o.w && p.y <= canvasHeight - 20 && p.y >= canvasHeight - 20 - o.h;
+        }
+        
+        if (hit) {
+          obstaclesRef.current = obstaclesRef.current.filter(ob => ob !== o);
+          projectilesRef.current = projectilesRef.current.filter(pr => pr !== p);
+          
+          if (o.type === 'target') {
+            // Targets give bonus points and multiplier
+            setScore(s => s + Math.floor(20 * multiplier));
+            setMultiplier(m => Math.min(5, m + 0.2));
+            playSfx(900, 70);
+            // Blue particles
+            for (let i = 0; i < 15; i++) {
+              particlesRef.current.push({ 
+                x: o.x, y: hitY, 
+                vx: (Math.random() * 2 - 1) * 0.5, 
+                vy: (Math.random() * 2 - 1) * 0.5, 
+                life: 600, color: '#4488ff', size: 2 + Math.random() * 2 
+              });
+            }
+          } else if (o.type === 'barrier') {
+            // Barriers give survival points - CRUCIAL for progression!
+            setScore(s => s + Math.floor(100 * multiplier));
+            playSfx(800, 100);
+            // Orange explosion particles
+            for (let i = 0; i < 25; i++) {
+              particlesRef.current.push({ 
+                x: o.x, y: hitY, 
+                vx: (Math.random() * 2 - 1) * 0.8, 
+                vy: (Math.random() * 2 - 1) * 0.8, 
+                life: 800, color: '#ff6600', size: 2 + Math.random() * 3 
+              });
+            }
+          }
+          break; // Only hit one obstacle per projectile
+        }
+      }
+    }
+
+    // Enhanced collision detection
+    const playerX = 60;
+    const radius = 14; // Slightly larger hitbox for better game feel
+    const playerY = canvasHeight - 20 - (playerYRef.current * 100) + 16; // Match rendering coordinates
+    let collided = false;
+    let collidedObstacle = null;
+    
+    for (const o of obstaclesRef.current) {
+      if (o.type === 'target') continue; // targets don't damage player
+      // Both 'low' and 'barrier' obstacles can damage the player
+      
+      // Match the obstacle coordinates from rendering: canvasHeight - 20 - o.h
+      const obstacleLeft = o.x;
+      const obstacleRight = o.x + o.w;
+      const obstacleTop = canvasHeight - 20 - o.h;
+      const obstacleBottom = canvasHeight - 20;
+      
+      // Circle vs Rectangle collision
+      const nearestX = Math.max(obstacleLeft, Math.min(playerX, obstacleRight));
+      const nearestY = Math.max(obstacleTop, Math.min(playerY, obstacleBottom));
+      const dx = playerX - nearestX; 
+      const dy = playerY - nearestY;
+      
+      if (dx * dx + dy * dy <= radius * radius) { 
+        collided = true; 
+        collidedObstacle = o;
+        console.log(`🔥 COLLISION! Player: (${playerX}, ${playerY}) vs Obstacle: (${o.x}, ${obstacleTop}-${obstacleBottom}), Distance: ${Math.sqrt(dx*dx + dy*dy)}, Radius: ${radius}`);
+        break; 
+      }
+    }
+    if (collided && phase === 'running') {
+      setLives(l => {
+        const next = l - 1;
+        if (next <= 0) setPhase('gameover');
+        return next;
+      });
+      setMultiplier(1);
+      
+      // Remove only the collided obstacle
+      if (collidedObstacle) {
+        obstaclesRef.current = obstaclesRef.current.filter(o => o !== collidedObstacle);
+      }
+      
+      // Enhanced collision effects
+      for (let i = 0; i < 30; i++) {
+        particlesRef.current.push({ 
+          x: playerX + (Math.random() - 0.5) * 40, 
+          y: (canvasHeight - playerY) + (Math.random() - 0.5) * 40, // Convert to particle coordinates
+          vx: (Math.random() * 2 - 1) * 0.7, 
+          vy: (Math.random() * 2 - 1) * 0.7, 
+          life: 800 + Math.random() * 400, 
+          color: '#ff3333', 
+          size: 2 + Math.random() * 2 
+        });
+      }
+      shakeRef.current = { t: 500, mag: 8 };
+      
+      // Enhanced collision sound
+      playSfx(180, 250);
+      setTimeout(() => playSfx(120, 200), 150);
+    }
+
+    // spawning with level-based difficulty
+    if (phase === 'running') {
+      const currentLevel = Math.floor(score / 1000) + 1;
+      
+      // Level-based spawn rates and obstacle types
+      let spawnRate = 0.008; // Base rate
+      let barrierChance = 0.1; // Start with low barrier chance
+      
+      switch(Math.min(currentLevel, 10)) {
+        case 1: spawnRate = 0.008; barrierChance = 0.05; break; // Very easy
+        case 2: spawnRate = 0.010; barrierChance = 0.10; break; // Easy
+        case 3: spawnRate = 0.012; barrierChance = 0.15; break; // Getting harder
+        case 4: spawnRate = 0.014; barrierChance = 0.20; break;
+        case 5: spawnRate = 0.016; barrierChance = 0.25; break; // Mid game
+        case 6: spawnRate = 0.018; barrierChance = 0.30; break;
+        case 7: spawnRate = 0.020; barrierChance = 0.35; break; // Hard
+        case 8: spawnRate = 0.022; barrierChance = 0.40; break;
+        case 9: spawnRate = 0.024; barrierChance = 0.45; break; // Very hard
+        case 10: spawnRate = 0.026; barrierChance = 0.50; break; // Maximum difficulty
+      }
+      
+      if (Math.random() < spawnRate) {
+        if (Math.random() < barrierChance) {
+          spawnObstacle('barrier'); // Force barrier spawn
+        } else {
+          spawnObstacle(); // Random spawn
+        }
+      }
+    }
+
+    // update particles
+    particlesRef.current.forEach(p => {
+      p.x += p.vx * dt; p.y += p.vy * dt; p.vy -= 0.0005 * dt; p.life -= dt;
+    });
+    particlesRef.current = particlesRef.current.filter(p => p.life > 0);
+
+    // update screen shake timer
+    if (shakeRef.current.t > 0) shakeRef.current.t = Math.max(0, shakeRef.current.t - dt);
+  };
+
+  const renderGame = (ctx: CanvasRenderingContext2D, width: number, height: number) => {
+    ctx.clearRect(0, 0, width, height);
+    // background gradient
+    const grad = ctx.createLinearGradient(0, 0, 0, height);
+    grad.addColorStop(0, 'rgba(10,10,18,1)');
+    grad.addColorStop(1, 'rgba(12,12,16,1)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, width, height);
+    // stars (generated once)
+    if (!starsRef.current) {
+      const arr: { x: number; y: number; s: number }[] = [];
+      for (let i = 0; i < 80; i++) arr.push({ x: Math.random() * width, y: Math.random() * (height - 120), s: Math.random() * 1.5 + 0.3 });
+      starsRef.current = arr;
+    }
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    starsRef.current.forEach(st => ctx.fillRect(st.x, st.y, st.s, st.s));
+
+    // parallax hills
+    ctx.fillStyle = 'rgba(68,136,255,0.06)';
+    ctx.beginPath(); ctx.moveTo(0, height - 60);
+    for (let x = 0; x <= width; x += 40) ctx.lineTo(x, height - 60 - 10 * Math.sin((x + performance.now() * 0.0003) * 0.05));
+    ctx.lineTo(width, height); ctx.lineTo(0, height); ctx.closePath(); ctx.fill();
+
+    // city silhouette
+    ctx.fillStyle = 'rgba(255,255,255,0.05)';
+    const t = performance.now() * 0.02;
+    for (let i = 0; i < 12; i++) {
+      const bx = ((i * 120 - (t % 120)) % (width + 120));
+      const bw = 40 + ((i * 37) % 30);
+      const bh = 40 + ((i * 53) % 60);
+      ctx.fillRect(bx, height - 20 - bh, bw, bh);
+    }
+
+    // ground
+    ctx.fillStyle = 'rgba(255,255,255,0.09)';
+    ctx.fillRect(0, height - 20, width, 2);
+
+    // apply screen shake
+    if (shakeRef.current.t > 0) {
+      const p = shakeRef.current.t / 300;
+      const mag = shakeRef.current.mag * p;
+      ctx.save();
+      ctx.translate((Math.random() - 0.5) * mag, (Math.random() - 0.5) * mag);
+    }
+
+    // player - bigger, more dynamic like reference game
+    const py = height - 20 - (playerYRef.current * 100);
+    const squash = Math.max(0.8, 1 - Math.abs(playerVyRef.current) * 2); // squash/stretch effect
+    ctx.fillStyle = '#00ff88';
+    ctx.beginPath();
+    ctx.save();
+    ctx.scale(1 / squash, squash); // squash effect
+    ctx.arc(60 * squash, (py - 16) / squash, 16, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    
+    // add glow effect
+    ctx.shadowColor = '#00ff88';
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.arc(60, py - 16, 14, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // Show sample obstacles during onboarding for demonstration
+    if (phase.startsWith('onboarding') || phase === 'ready') {
+      // Sample low obstacle (orange spiky)
+      const sampleX = width * 0.7;
+      const sampleY = height - 20 - 25;
+      ctx.fillStyle = '#ff6600';
+      ctx.fillRect(sampleX, sampleY, 30, 25);
+      
+      // Spikes on top
+      ctx.fillStyle = '#ff3300';
+      for (let i = 0; i < 30; i += 4) {
+        ctx.beginPath();
+        ctx.moveTo(sampleX + i, sampleY);
+        ctx.lineTo(sampleX + i + 2, sampleY - 6);
+        ctx.lineTo(sampleX + i + 4, sampleY);
+        ctx.fill();
+      }
+      
+      // Outline
+      ctx.strokeStyle = '#cc2200';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(sampleX, sampleY, 30, 25);
+      
+      // Sample barrier (red)
+      if (phase === 'onboarding2' || phase === 'onboarding3' || phase === 'ready') {
+        const barrierX = width * 0.85;
+        const barrierY = height - 20 - 80;
+        ctx.fillStyle = '#cc0000';
+        ctx.fillRect(barrierX, barrierY, 20, 80);
+        
+        // Warning stripes
+        ctx.fillStyle = '#ffaa00';
+        for (let y = 0; y < 80; y += 8) {
+          ctx.fillRect(barrierX, barrierY + y, 20, 4);
+        }
+        
+        // Pulsing glow
+        const pulse = Math.sin(performance.now() * 0.008) * 0.5 + 0.5;
+        ctx.shadowColor = '#ff0000';
+        ctx.shadowBlur = 8 + pulse * 8;
+        ctx.fillStyle = '#ff3333';
+        ctx.fillRect(barrierX + 2, barrierY + 2, 16, 76);
+        ctx.shadowBlur = 0;
+        
+        // Warning indicator
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 16px system-ui';
+        ctx.fillText('!', barrierX + 6, barrierY + 20);
+      }
+      
+      // Sample target (blue)
+      if (phase === 'onboarding2' || phase === 'onboarding3' || phase === 'ready') {
+        const targetX = width * 0.6;
+        const targetY = height - 60;
+        ctx.fillStyle = '#4488ff';
+        ctx.fillRect(targetX, targetY, 25, 25);
+        
+        ctx.fillStyle = '#6699ff';
+        ctx.fillRect(targetX + 2, targetY + 2, 21, 21);
+        
+        // Pulsing center
+        const pulse = Math.sin(performance.now() * 0.01) * 0.5 + 0.5;
+        ctx.fillStyle = `rgba(255, 255, 255, ${pulse * 0.8})`;
+        ctx.fillRect(targetX + 6, targetY + 6, 13, 13);
+      }
+    }
+
+    // obstacles/targets with enhanced graphics
+    obstaclesRef.current.forEach(o => {
+      if (o.type === 'low') {
+        // Small ground obstacles - spiky and dangerous looking
+        const obstacleX = o.x;
+        const obstacleY = height - 20 - o.h;
+        
+        // Main body
+        ctx.fillStyle = '#ff6600';
+        ctx.fillRect(obstacleX, obstacleY, o.w, o.h);
+        
+        // Spikes on top
+        ctx.fillStyle = '#ff3300';
+        for (let i = 0; i < o.w; i += 4) {
+          ctx.beginPath();
+          ctx.moveTo(obstacleX + i, obstacleY);
+          ctx.lineTo(obstacleX + i + 2, obstacleY - 6);
+          ctx.lineTo(obstacleX + i + 4, obstacleY);
+          ctx.fill();
+        }
+        
+        // Outline
+        ctx.strokeStyle = '#cc2200';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(obstacleX, obstacleY, o.w, o.h);
+      } else if (o.type === 'barrier') {
+        // Tall barriers - MUST be shot to pass!
+        const barrierX = o.x;
+        const barrierY = height - 20 - o.h;
+        
+        // Main wall - imposing red
+        ctx.fillStyle = '#cc0000';
+        ctx.fillRect(barrierX, barrierY, o.w, o.h);
+        
+        // Warning stripes
+        ctx.fillStyle = '#ffff00';
+        for (let i = 0; i < o.h; i += 8) {
+          ctx.fillRect(barrierX, barrierY + i, o.w, 4);
+        }
+        
+        // Pulsing danger glow
+        const dangerPulse = Math.sin(performance.now() * 0.02) * 0.3 + 0.7;
+        ctx.shadowColor = '#ff0000';
+        ctx.shadowBlur = 15 * dangerPulse;
+        ctx.strokeStyle = '#ff0000';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(barrierX, barrierY, o.w, o.h);
+        ctx.shadowBlur = 0;
+        
+        // "SHOOT ME" indicator
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 8px system-ui';
+        ctx.fillText('!', barrierX + o.w/2 - 2, barrierY + 15);
+      } else {
+        // Air targets - glowing and shootable (bonus points)
+        const targetX = o.x;
+        const targetY = height - 20 - (100 + o.y);
+        
+        // Glow effect
+        ctx.shadowColor = '#4488ff';
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = '#6699ff';
+        ctx.fillRect(targetX, targetY, o.w, o.h);
+        
+        // Inner core
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#88bbff';
+        ctx.fillRect(targetX + 2, targetY + 2, o.w - 4, o.h - 4);
+        
+        // Pulsing center
+        const pulse = Math.sin(performance.now() * 0.01) * 0.5 + 0.5;
+        ctx.fillStyle = `rgba(255, 255, 255, ${pulse * 0.8})`;
+        ctx.fillRect(targetX + 6, targetY + 6, o.w - 12, o.h - 12);
+      }
+    });
+
+    // Enhanced projectiles
+    projectilesRef.current.forEach(p => {
+      const projX = p.x;
+      const projY = height - 20 - p.y;
+      
+      // Glow trail
+      ctx.shadowColor = '#ffaa00';
+      ctx.shadowBlur = 8;
+      ctx.fillStyle = '#ffaa00';
+      ctx.fillRect(projX, projY, 12, 4);
+      
+      // Bright core
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#ffdd00';
+      ctx.fillRect(projX + 2, projY + 1, 8, 2);
+      
+      // Trail particles
+      if (Math.random() < 0.3) {
+        particlesRef.current.push({ 
+          x: projX - 5, 
+          y: p.y, 
+          vx: -0.1 + Math.random() * -0.2, 
+          vy: (Math.random() - 0.5) * 0.1, 
+          life: 150, 
+          color: '#ff8800', 
+          size: 1 + Math.random() 
+        });
+      }
+    });
+
+    // particles
+    particlesRef.current.forEach(p => {
+      ctx.fillStyle = p.color;
+      ctx.fillRect(p.x, height - 20 - p.y, p.size, p.size);
+    });
+
+    if (shakeRef.current.t > 0) {
+      ctx.restore();
+    }
+
+    // HUD - Lives in top left, other info in top right
+    if (phase === 'running' || phase.startsWith('onboarding')) {
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 16px system-ui, -apple-system, Segoe UI, Roboto';
+      
+      // Lives in TOP LEFT with heart icons
+      ctx.fillStyle = '#ff6b6b';
+      for (let i = 0; i < lives; i++) {
+        ctx.fillText('❤️', 20 + i * 25, 25);
+      }
+      
+      if (phase === 'running') {
+        // Score and multiplier in BOTTOM RIGHT
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 16px system-ui';
+        ctx.fillText(`Score: ${score}`, width - 130, height - 40);
+        if (multiplier > 1) {
+          ctx.fillStyle = '#ffaa00';
+          ctx.font = 'bold 14px system-ui';
+          ctx.fillText(`x${multiplier.toFixed(1)}`, width - 130, height - 20);
+        }
+        
+        // Level indicator in TOP RIGHT
+        const currentLevel = Math.floor(score / 1000) + 1;
+        const levelProgress = (score % 1000) / 1000;
+        
+        // Check for level up
+        const prevLevel = Math.floor((score - 1) / 1000) + 1;
+        if (currentLevel > prevLevel && currentLevel <= 10) {
+          // Level up celebration!
+          for (let i = 0; i < 50; i++) {
+            particlesRef.current.push({ 
+              x: width - 70, y: 25, 
+              vx: (Math.random() - 0.5) * 1.0, 
+              vy: (Math.random() - 0.5) * 1.0, 
+              life: 1500, 
+              color: '#00ff88', 
+              size: 3 + Math.random() * 2 
+            });
+          }
+          playSfx(600, 200);
+          setTimeout(() => playSfx(800, 200), 100);
+          setTimeout(() => playSfx(1000, 200), 200);
+        }
+        
+        ctx.fillStyle = currentLevel <= 10 ? '#00ff88' : '#ffaa00';
+        ctx.font = 'bold 16px system-ui';
+        const levelText = currentLevel <= 10 ? `Level ${currentLevel}` : 'MAX LEVEL';
+        ctx.fillText(levelText, width - 120, 25);
+        
+        // Level progress bar
+        if (currentLevel <= 10) {
+          ctx.fillStyle = 'rgba(0, 255, 136, 0.3)';
+          ctx.fillRect(width - 120, 30, 100, 8);
+          ctx.fillStyle = '#00ff88';
+          ctx.fillRect(width - 120, 30, 100 * levelProgress, 8);
+        }
+        
+        // Special ability cooldown indicator
+        if (cooldownRef.current > 0) {
+          const cooldownPercent = cooldownRef.current / 4000;
+          ctx.fillStyle = 'rgba(139, 92, 246, 0.3)';
+          ctx.fillRect(width - 120, 45, 100, 8);
+          ctx.fillStyle = '#8b5cf6';
+          ctx.fillRect(width - 120, 45, 100 * (1 - cooldownPercent), 8);
+          ctx.fillStyle = '#fff';
+          ctx.font = '10px system-ui';
+          ctx.fillText('SPECIAL', width - 115, 58);
+        }
+      }
+    }
+
+    if (phase === 'gameover') {
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.fillRect(0, 0, width, height);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 18px system-ui, -apple-system, Segoe UI, Roboto';
+      ctx.fillText('Game Over', width / 2 - 55, height / 2);
+    }
+  };
+
+  const loop = (ts: number) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    // During onboarding, we always render even without mic
+    const analyser = analyserRef.current;
+    const shouldProcessAudio = analyser && isListening;
+
+    const width = canvas.width;
+    const height = canvas.height;
+    const ctx = canvas.getContext('2d')!;
+
+    // Debug logging for audio processing conditions (only when state changes)
+    const debugState = {
+      shouldProcessAudio,
+      paused,
+      hasDetector: !!detectorRef.current,
+      hasMatcher: !!matcherRef.current,
+      isListening,
+      hasAnalyser: !!analyser,
+      phase,
+      // Extra debug info
+      analyserRefCurrent: !!analyserRef.current,
+      calculation: `${!!analyser} && ${isListening} = ${shouldProcessAudio}`
+    };
+    
+    // Only log when state changes
+    if (!(window as any).lastDebugState || JSON.stringify((window as any).lastDebugState) !== JSON.stringify(debugState)) {
+      console.log('Audio state changed:', debugState);
+      (window as any).lastDebugState = debugState;
+    }
+
+    // audio processing - only if mic enabled and not paused
+    if (shouldProcessAudio && !paused && detectorRef.current && matcherRef.current) {
+      // Debug: audio processing is active
+      analyser.getByteFrequencyData(dataArrayRef.current!);
+      analyser.getByteTimeDomainData(timeArrayRef.current!);
+      const now = performance.now();
+      const clap = detectorRef.current.process({
+        timeDomain: timeArrayRef.current!,
+        frequencyDomain: dataArrayRef.current!,
+        sampleRate: audioContextRef.current!.sampleRate,
+        timestampMs: now
+      });
+      if (clap) {
+        console.log('Clap detected:', clap);
+        const pattern = matcherRef.current.addClap(clap);
+        if (pattern) {
+          console.log('Pattern detected:', pattern.name);
+          enqueueAction(pattern.name);
+        }
+        if (phase === 'running') setScore(s => s + 1);
+      }
+
+      // Check for delayed SINGLE patterns
+      const pendingPattern = matcherRef.current.checkPendingSingle();
+      if (pendingPattern) {
+        console.log('Delayed pattern:', pendingPattern.name);
+        enqueueAction(pendingPattern.name);
+        if (phase === 'running') setScore(s => s + 1);
+      }
+    }
+
+    // update - only if not paused
+    if (!paused) {
+      const last = lastTsRef.current || ts;
+      const dt = Math.min(50, ts - last);
+      lastTsRef.current = ts;
+      if (lives > 0) {
+        const canvas = canvasRef.current;
+        if (canvas) {
+          updateGame(dt, canvas.width, canvas.height);
+        }
+      }
+    } else {
+      // Reset timestamp when paused to prevent jumps when unpausing
+      lastTsRef.current = ts;
+    }
+
+    // render
+    renderGame(ctx, width, height);
+
+    rafRef.current = requestAnimationFrame(loop);
+  };
+
+  useEffect(() => {
+    const resize = () => {
+      const canvas = canvasRef.current;
+      const stage = stageRef.current;
+      if (!canvas || !stage) return;
+      const dpr = (globalThis as any).devicePixelRatio || 1;
+      const rect = stage.getBoundingClientRect();
+      const width = Math.max(640, Math.floor(rect.width));
+      const vh = Math.max(220, Math.floor(window.innerHeight - rect.top - 24));
+      canvas.width = Math.floor(width * dpr);
+      canvas.height = Math.floor(vh * dpr);
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${vh}px`;
+      const ctx = canvas.getContext('2d')!;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.scale(dpr, dpr);
+    };
+    resize();
+    const ro = new ResizeObserver(() => resize());
+    if (stageRef.current) ro.observe(stageRef.current);
+    window.addEventListener('resize', resize);
+    return () => { ro.disconnect(); window.removeEventListener('resize', resize); };
+  }, []);
+
+  useEffect(() => () => stopListening(), []);
+
+  // Debug: Track isListening state changes
+  useEffect(() => {
+    console.log('isListening state changed to:', isListening);
+  }, [isListening]);
+
+  // Debug: Track analyser ref changes
+  useEffect(() => {
+    const checkAnalyser = () => {
+      console.log('analyserRef check:', {
+        hasAnalyser: !!analyserRef.current,
+        isListening,
+        shouldProcessAudio: !!analyserRef.current && isListening
+      });
+    };
+    checkAnalyser();
+    const interval = setInterval(checkAnalyser, 500);
+    return () => clearInterval(interval);
+  }, [isListening]);
+
+  // Store loop function in ref to avoid dependency issues
+  const loopRef = useRef<((ts: number) => void) | null>(null);
+  loopRef.current = loop;
+
+  // Start visual loop immediately for onboarding (even without mic)
+  useEffect(() => {
+    const startLoop = (ts: number) => {
+      if (loopRef.current) loopRef.current(ts);
+    };
+    if (!rafRef.current) {
+      rafRef.current = requestAnimationFrame(startLoop);
+    }
+    return () => {
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+    };
+  }, []);
+
+  return (
+    <div>
+      <div ref={stageRef} style={{ position: 'relative', width: '100%' }}>
+        <canvas ref={canvasRef} style={{ display: 'block', width: '100%', background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '8px' }} />
+        {/* Controls (no visible SFX toggle by default) */}
+        {isListening && (
+          <div style={{ position: 'absolute', top: '8px', right: '8px', display: 'flex', gap: '6px' }}>
+            <button onClick={() => setPaused(p => !p)} style={{ padding: '6px 10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.06)', color: '#fff', fontWeight: 700 }}>{paused ? 'Resume' : 'Pause'}</button>
+            <button onClick={() => stopListening()} style={{ padding: '6px 10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255, 68, 68, 0.25)', color: '#fff', fontWeight: 700 }}>Mic Off</button>
+          </div>
+        )}
+        {(!isListening) && (
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ 
+              background: 'linear-gradient(135deg, rgba(0,0,0,0.85), rgba(20,20,40,0.9))', 
+              border: '2px solid rgba(255,170,0,0.5)', 
+              borderRadius: '16px', 
+              padding: '2rem 2.5rem', 
+              textAlign: 'center',
+              width: 'min(500px, 90%)',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.5)'
+            }}>
+              <div style={{ 
+                fontSize: '1.8rem', 
+                fontWeight: 900, 
+                background: 'linear-gradient(45deg, #00ff88, #4488ff)',
+                backgroundClip: 'text',
+                WebkitBackgroundClip: 'text',
+                color: 'transparent',
+                marginBottom: '1rem'
+              }}>
+                Welcome to Clap Quest! 🎮
+              </div>
+              <div style={{ 
+                color: '#ffaa00', 
+                fontWeight: 600, 
+                fontSize: '1.2rem',
+                marginBottom: '1rem'
+              }}>
+                🎤 Microphone Required
+              </div>
+              <div style={{ 
+                color: '#ccc', 
+                fontSize: '1rem',
+                lineHeight: 1.5,
+                marginBottom: '1.5rem'
+              }}>
+                This game uses clap detection to control your character.<br/>
+                Please enable your microphone to continue.
+              </div>
+              <button 
+                onClick={() => startListening()} 
+                style={{ 
+                  padding: '1rem 2rem', 
+                  borderRadius: '12px', 
+                  border: '2px solid #ffaa00', 
+                  background: 'linear-gradient(45deg, rgba(255,170,0,0.2), rgba(255,136,0,0.3))', 
+                  color: '#fff', 
+                  fontWeight: 800,
+                  fontSize: '1.1rem',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'linear-gradient(45deg, rgba(255,170,0,0.3), rgba(255,136,0,0.4))';
+                  e.currentTarget.style.transform = 'scale(1.05)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'linear-gradient(45deg, rgba(255,170,0,0.2), rgba(255,136,0,0.3))';
+                  e.currentTarget.style.transform = 'scale(1)';
+                }}
+              >
+                🎤 Enable Microphone
+              </button>
+            </div>
+          </div>
+        )}
+        {isListening && (phase === 'onboarding1' || phase === 'onboarding2' || phase === 'onboarding3' || phase === 'ready') && (
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+            <div style={{ 
+              background: 'linear-gradient(135deg, rgba(0,0,0,0.85), rgba(20,20,40,0.9))', 
+              border: '2px solid rgba(0,255,136,0.3)', 
+              borderRadius: '16px', 
+              padding: '2rem 2.5rem', 
+              width: 'min(600px, 90%)',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.5)'
+            }}>
+              
+              {/* Welcome Header */}
+              {phase === 'onboarding1' && (
+                <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+                  <div style={{ 
+                    fontSize: '1.8rem', 
+                    fontWeight: 900, 
+                    background: 'linear-gradient(45deg, #00ff88, #4488ff)',
+                    backgroundClip: 'text',
+                    WebkitBackgroundClip: 'text',
+                    color: 'transparent',
+                    marginBottom: '0.5rem'
+                  }}>
+                    Welcome to Clap Quest! 🎮
+                  </div>
+                  <div style={{ color: '#ccc', fontSize: '1rem' }}>
+                    Let's learn the controls together
+                  </div>
+                </div>
+              )}
+
+              {/* Main Instruction */}
+              <div style={{ 
+                fontSize: '1.4rem', 
+                fontWeight: 700, 
+                textAlign: 'center',
+                marginBottom: '1rem',
+                color: '#fff'
+              }}>
+                {phase === 'onboarding1' && '👏 Clap once to JUMP'}
+                {phase === 'onboarding2' && '👏👏 Clap twice to SHOOT'}
+                {phase === 'onboarding3' && '👏👏👏 Clap three times for SPECIAL POWER'}
+                {phase === 'ready' && '🎯 You\'re ready to play!'}
+              </div>
+
+              {/* Tutorial Explanation */}
+              <div style={{ 
+                color: '#aaa', 
+                fontSize: '0.95rem', 
+                textAlign: 'center', 
+                lineHeight: 1.5,
+                marginBottom: '1.2rem'
+              }}>
+                {phase === 'onboarding1' && (
+                  <>
+                    <div>Jump over <span style={{color: '#ff6600', fontWeight: 600}}>🟠 orange spiky obstacles</span></div>
+                    <div style={{marginTop: '0.5rem'}}>Try clapping once now - you should see your character jump!</div>
+                  </>
+                )}
+                {phase === 'onboarding2' && (
+                  <>
+                    <div>Shoot <span style={{color: '#cc0000', fontWeight: 600}}>🔴 red barriers</span> and <span style={{color: '#4488ff', fontWeight: 600}}>🔵 blue targets</span></div>
+                    <div style={{marginTop: '0.5rem'}}>Clap twice quickly - you should see a projectile fire!</div>
+                  </>
+                )}
+                {phase === 'onboarding3' && (
+                  <>
+                    <div>Clear all obstacles instantly with your special power</div>
+                    <div style={{marginTop: '0.5rem'}}>Clap three times quickly - watch the purple explosion!</div>
+                  </>
+                )}
+                {phase === 'ready' && (
+                  <>
+                    <div style={{marginBottom: '0.5rem'}}>🎯 <strong>Goal:</strong> Survive 10 levels by avoiding and shooting obstacles</div>
+                    <div>💡 <strong>Strategy:</strong> Jump over small ones, shoot the tall barriers!</div>
+                  </>
+                )}
+              </div>
+
+              {/* Progress */}
+              {phase !== 'ready' && (
+                <div style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  gap: '1rem',
+                  marginBottom: '1.5rem'
+                }}>
+                  <div style={{ 
+                    fontSize: '1.1rem', 
+                    fontWeight: 600,
+                    color: '#fff'
+                  }}>
+                    Progress: {progress}/{phase === 'onboarding3' ? 1 : 3}
+                  </div>
+                  <div style={{ 
+                    display: 'flex', 
+                    gap: '0.3rem' 
+                  }}>
+                    {Array.from({length: phase === 'onboarding3' ? 1 : 3}).map((_, i) => (
+                      <div key={i} style={{
+                        width: '12px',
+                        height: '12px',
+                        borderRadius: '50%',
+                        background: i < progress ? '#00ff88' : 'rgba(255,255,255,0.2)'
+                      }} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Quick Navigation */}
+              <div style={{ 
+                display: 'flex', 
+                gap: '0.5rem', 
+                justifyContent: 'center', 
+                marginTop: '1rem', 
+                pointerEvents: 'auto' 
+              }}>
+                {phase !== 'ready' ? (
+                  <>
+                    <button 
+                      onClick={() => { setPhase('onboarding1'); setProgress(0); }} 
+                      style={{ 
+                        padding: '0.4rem 0.8rem', 
+                        borderRadius: '8px', 
+                        border: phase === 'onboarding1' ? '2px solid #00ff88' : '1px solid rgba(255,255,255,0.2)', 
+                        background: phase === 'onboarding1' ? 'rgba(0,255,136,0.2)' : 'rgba(255,255,255,0.05)', 
+                        color: phase === 'onboarding1' ? '#00ff88' : '#aaa', 
+                        fontSize: '0.85rem', 
+                        cursor: 'pointer',
+                        fontWeight: phase === 'onboarding1' ? 600 : 400
+                      }}
+                    >
+                      👏 Jump
+                    </button>
+                    <button 
+                      onClick={() => { setPhase('onboarding2'); setProgress(0); }} 
+                      style={{ 
+                        padding: '0.4rem 0.8rem', 
+                        borderRadius: '8px', 
+                        border: phase === 'onboarding2' ? '2px solid #00ff88' : '1px solid rgba(255,255,255,0.2)', 
+                        background: phase === 'onboarding2' ? 'rgba(0,255,136,0.2)' : 'rgba(255,255,255,0.05)', 
+                        color: phase === 'onboarding2' ? '#00ff88' : '#aaa', 
+                        fontSize: '0.85rem', 
+                        cursor: 'pointer',
+                        fontWeight: phase === 'onboarding2' ? 600 : 400
+                      }}
+                    >
+                      👏👏 Shoot
+                    </button>
+                    <button 
+                      onClick={() => { setPhase('onboarding3'); setProgress(0); }} 
+                      style={{ 
+                        padding: '0.4rem 0.8rem', 
+                        borderRadius: '8px', 
+                        border: phase === 'onboarding3' ? '2px solid #00ff88' : '1px solid rgba(255,255,255,0.2)', 
+                        background: phase === 'onboarding3' ? 'rgba(0,255,136,0.2)' : 'rgba(255,255,255,0.05)', 
+                        color: phase === 'onboarding3' ? '#00ff88' : '#aaa', 
+                        fontSize: '0.85rem', 
+                        cursor: 'pointer',
+                        fontWeight: phase === 'onboarding3' ? 600 : 400
+                      }}
+                    >
+                      👏👏👏 Special
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button 
+                      onClick={() => setPhase('running')} 
+                      style={{ 
+                        padding: '1rem 2rem', 
+                        borderRadius: '12px', 
+                        border: '2px solid #00ff88', 
+                        background: 'linear-gradient(45deg, rgba(0,255,136,0.2), rgba(68,136,255,0.2))', 
+                        color: '#fff', 
+                        fontWeight: 800,
+                        fontSize: '1.1rem',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      🚀 Start Adventure!
+                    </button>
+                    <button 
+                      onClick={() => { setPhase('onboarding1'); setProgress(0); }} 
+                      style={{ 
+                        padding: '1rem 1.5rem', 
+                        borderRadius: '12px', 
+                        border: '1px solid rgba(255,255,255,0.3)', 
+                        background: 'rgba(255,255,255,0.1)', 
+                        color: '#ccc', 
+                        fontWeight: 600,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Practice Again
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+        {paused && phase === 'running' && (
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.35)' }}>
+            <div style={{ background: 'rgba(0,0,0,0.65)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '12px', padding: '1rem 1.2rem', textAlign: 'center' }}>
+              <div style={{ fontWeight: 800, marginBottom: '0.5rem' }}>Paused</div>
+              <button onClick={() => setPaused(false)} style={{ padding: '0.5rem 0.9rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(0, 255, 136, 0.25)', color: '#fff', cursor: 'pointer' }}>Resume</button>
+            </div>
+          </div>
+        )}
+        {phase === 'gameover' && (
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ background: 'rgba(0,0,0,0.65)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '12px', padding: '1rem 1.2rem', width: 'min(520px, 90%)', textAlign: 'center' }}>
+              <div style={{ fontWeight: 800, marginBottom: '0.5rem' }}>Game Over</div>
+              <div style={{ color: '#ccc', marginBottom: '0.6rem' }}>Score: {score}</div>
+              <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+                <button onClick={() => { setScore(0); setLives(3); setMultiplier(1); obstaclesRef.current = []; setPhase('onboarding1'); setProgress(0); }} style={{ padding: '0.5rem 0.9rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.06)', color: '#fff', cursor: 'pointer' }}>Retry</button>
+                <button onClick={() => { setPhase('onboarding3'); setProgress(0); }} style={{ padding: '0.5rem 0.9rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.06)', color: '#fff', cursor: 'pointer', marginLeft: '0.5rem' }}>Skip to Phase 3</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+

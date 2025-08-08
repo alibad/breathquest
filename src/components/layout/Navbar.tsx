@@ -124,8 +124,7 @@ const Navbar = () => {
             )}
           </li>
           <li ref={demoRef} style={{ position: 'relative' }}
-              onMouseEnter={() => setIsDemoOpen(true)}
-              onMouseLeave={() => setIsDemoOpen(false)}>
+              onMouseEnter={() => setIsDemoOpen(true)}>
             <button
               onClick={() => setIsDemoOpen((v) => !v)}
               style={{
@@ -155,6 +154,7 @@ const Navbar = () => {
                   boxShadow: '0 10px 24px rgba(0,0,0,0.4)',
                   zIndex: 1000
                 }}
+                onMouseEnter={() => setIsDemoOpen(true)}
               >
                 <Link href="/hypothesis-1" onClick={() => setIsDemoOpen(false)}
                   style={{
@@ -187,10 +187,29 @@ const Navbar = () => {
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <strong>Hypothesis #2: Clap Patterns</strong>
-                    <span style={{ background: '#ffaa44', color: '#000', padding: '2px 8px', borderRadius: '10px', fontSize: '0.75rem', fontWeight: 800 }}>In Progress</span>
+                    <span style={{ background: '#00ff88', color: '#000', padding: '2px 8px', borderRadius: '10px', fontSize: '0.75rem', fontWeight: 800 }}>Done</span>
                   </div>
                   <div style={{ fontSize: '0.9rem', color: '#ccc', marginTop: '0.25rem' }}>
-                    Onset + pattern detection (single/double/triple). Aiming for robust, fun, noise‑resistant control.
+                    Onset + pattern detection (single/double/triple). Robust, responsive control; mini‑game included.
+                  </div>
+                </Link>
+                <div style={{ height: '0.5rem' }} />
+                <Link href="/hypothesis-3" onClick={() => setIsDemoOpen(false)}
+                  style={{
+                    display: 'block',
+                    textDecoration: 'none',
+                    color: 'inherit',
+                    padding: '0.75rem',
+                    borderRadius: '8px',
+                    background: 'rgba(255,255,255,0.05)'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <strong>Hypothesis #3: Fun Sound Game</strong>
+                    <span style={{ background: '#ffaa44', color: '#000', padding: '2px 8px', borderRadius: '10px', fontSize: '0.75rem', fontWeight: 800 }}>New</span>
+                  </div>
+                  <div style={{ fontSize: '0.9rem', color: '#ccc', marginTop: '0.25rem' }}>
+                    Build a fun mini‑game powered by claps (voice later). Jump/Fire/Special.
                   </div>
                 </Link>
               </div>

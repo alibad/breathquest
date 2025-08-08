@@ -65,6 +65,10 @@ export default function HypothesisTwoPage() {
 
     detectorRef.current = new ClapDetector();
     matcherRef.current = new ClapPatternMatcher();
+    
+    // Explicitly set to normal mode for Hypothesis #2
+    matcherRef.current.setPhase('normal');
+    console.log('Hypothesis #2: Set ClapPatternMatcher to NORMAL mode');
 
     setIsListening(true);
     loop();

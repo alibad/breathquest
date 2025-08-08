@@ -1,6 +1,4 @@
 'use client';
-
-import { hypotheses } from '@/lib/constants';
 import { useFadeInOnScroll } from '@/hooks/useFadeInOnScroll';
 import { useState } from 'react';
 
@@ -45,82 +43,40 @@ const hypothesesData: HypothesisStatus[] = [
   {
     id: 2,
     title: "Clap patterns can power robust, fun, noise‑resistant real‑time game control",
-    description: "Evaluate whether intentional, percussive clap events and timing patterns (single, double, triple, rhythmic motifs) can be detected with low latency and mapped to reliable gameplay actions across typical environments.",
-    status: 'in-progress',
-    phase: 'Phase 1: Feasibility & Baselines',
+    description: "Evaluate whether intentional, percussive clap events and timing patterns (single, double, triple) can be detected with low latency and mapped to reliable gameplay actions across typical environments.",
+    status: 'completed',
+    phase: 'Phase 1 Complete',
     findings: [
-      '✅ Claps have sharp transients and wideband spectra → easy onset detection with RMS/flux gating',
-      '✅ Timing between claps naturally encodes multiple actions (single/double/triple/rhythms)',
-      '🧪 Requires tolerance handling for user timing variance and room acoustics',
-      '🧪 Must test robustness vs. echo, AGC, and background applause/music'
+      '✅ Real‑time clap onset and pattern detection (single/double/triple) working with low latency',
+      '✅ Visual timeline + mini‑game mapping patterns → actions',
+      '✅ Noise‑resistant and responsive with adaptive thresholding',
+      '🎯 Next: Expand into richer audio controls (voice) for fun gameplay'
     ],
     nextSteps: [
-      'Implement clap onset detector (RMS + spectral flux) with noise floor auto‑calibration',
-      'Add pattern matcher for single/double/triple and simple rhythms with ±tolerance windows',
-      'Build real‑time visualizer: event timeline, intervals, confidence, latency',
-      'Create mini‑game mapping patterns → actions; measure player success and delight',
-      'Benchmark across microphones/rooms: false positives, misses, end‑to‑end latency'
+      'Promote to “Done” and move forward to voice‑based controls (Hypothesis 3)'
     ],
     demoLink: '/hypothesis-2'
   },
+  // (Removed previous id:3 hardware sensors hypothesis)
+  // Hypothesis 3 – Clap‑powered fun gameplay
   {
     id: 3,
-    title: "Heart rate and respiratory sensors provide complementary data that enables adaptive gameplay mechanics beyond microphone detection",
-    description: "Exploring multi-sensor integration for enhanced breath gaming",
-    status: 'cancelled',
-    phase: 'Research & Cost Analysis Complete',
+    title: 'Clap Quest — A fast, rewarding clap‑powered mini‑game',
+    description: 'Design and build a polished, engaging game that uses intentional clap patterns to control three core actions: SINGLE → Jump, DOUBLE → Fire, TRIPLE → Special. Include a short, interactive onboarding that teaches each action with immediate feedback and ramps difficulty.',
+    status: 'in-progress',
+    phase: 'Phase 1: Game Design & Prototype',
     findings: [
-      '❌ Hardware costs too high: $125+ for educational-grade respiratory belts',
-      '❌ Setup complexity: Bluetooth pairing, physical hardware, calibration',
-      '❌ Consumer unfriendly: Professional lab equipment, not gaming accessories',
-      '❌ Best option found: Vernier Go Direct® Respiration Belt ($125)',
-      '✅ Microphone-only approach validated as optimal path forward'
+      '✅ Clap detection and pattern matching are working (single/double/triple)',
+      '🎯 Game needs clear feedback, scoring, and a learning curve to feel fun',
+      '🧪 Risks: room acoustics and AGC; mitigated via adaptive baseline and timing tolerances'
     ],
     nextSteps: [
-      '✅ Decision made: Focus on microphone-only detection',
-      'Invest in advanced audio algorithms instead of hardware',
-      'Explore breath pattern recognition improvements',
-      'Consider revisiting sensors only if consumer wearables emerge'
-    ]
-  },
-  {
-    id: 4,
-    title: "Breath games create measurable health improvements that persist beyond gaming sessions",
-    description: "Testing whether gaming can improve breathing techniques and respiratory health",
-    status: 'pending',
-    nextSteps: [
-      'Wait for reliable breath gaming system (Hypotheses 1-2)',
-      'Design longitudinal health impact studies',
-      'Partner with respiratory health professionals',
-      'Implement breathing pattern tracking over time',
-      'Measure pre/post gaming breathing technique improvements'
-    ]
-  },
-  {
-    id: 5,
-    title: "Players learn complex breathing techniques faster through progressive game mechanics than traditional instruction",
-    description: "Comparing gamified vs traditional breathing technique education",
-    status: 'pending',
-    nextSteps: [
-      'Wait for proven breath gaming system (Hypotheses 1-2)',
-      'Design comparative learning studies',
-      'Create progressive difficulty breathing challenges',
-      'Measure learning speed vs traditional breathing instruction',
-      'Partner with breathing technique instructors for validation'
-    ]
-  },
-  {
-    id: 6,
-    title: "Multiplayer breath gaming creates stronger social bonding than traditional multiplayer mechanics",
-    description: "Exploring social aspects of synchronized breathing in gaming",
-    status: 'pending',
-    nextSteps: [
-      'Wait for single-player breath gaming validation (Hypotheses 1-2)',
-      'Research multiplayer breath synchronization',
-      'Design social breathing game mechanics',
-      'Study group breathing experiences',
-      'Compare social bonding vs traditional multiplayer games'
-    ]
+      'Ship runner prototype with score, lives, multiplier, and three clap actions',
+      'Add onboarding: practice SINGLE, then DOUBLE, then TRIPLE with guided tasks',
+      'Polish effects (particles, flashes) and balance difficulty',
+      'Collect basic session metrics and iterate on feel'
+    ],
+    demoLink: '/hypothesis-3'
   }
 ];
 
