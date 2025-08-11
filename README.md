@@ -13,7 +13,7 @@
 
 ## ✨ **What Is This?**
 
-Breath Quest started as a breath-controlled gaming experiment and evolved into a comprehensive audio interface research platform. The project validates biological computing interfaces through real-world gaming applications.
+Breath Quest started as a breath-controlled gaming experiment and evolved into a comprehensive audio interface research platform. The project validates audio-controlled gaming interfaces through three working prototypes, from breath detection to clap-controlled gaming.
 
 ### 🎮 **Current Features**
 - **👏 Clap-Controlled Gaming** - Single clap to jump, double clap to shoot, triple clap for special powers
@@ -54,7 +54,7 @@ Visit [**breather.quest**](https://www.breather.quest/) to experience audio-cont
 
 ## 🔬 **Research & Validation**
 
-This project validates **6 core hypotheses** about breath-controlled interfaces:
+This project validates **3 core hypotheses** about audio-controlled interfaces:
 
 ### ✅ **Hypothesis 1: Microphone Breath Detection** 
 > *Consumer microphones can reliably detect breathing patterns with sufficient accuracy for real-time gaming*
@@ -66,7 +66,7 @@ This project validates **6 core hypotheses** about breath-controlled interfaces:
 
 [🧪 **Try Interactive Demo**](https://www.breather.quest/hypothesis-1)
 
-### ✅ **Hypothesis 2:** Audio Gaming Engagement  
+### ✅ **Hypothesis 2: Clap Pattern Gaming**  
 > *Audio-controlled gameplay (clap detection) is significantly more engaging than breath control for gaming*
 
 **Status:** **🎯 VALIDATED** - Clap detection provides:
@@ -75,13 +75,18 @@ This project validates **6 core hypotheses** about breath-controlled interfaces:
 - Zero calibration required
 - Universal device compatibility
 
-### ❌ **Hypothesis 3:** Sensor Hardware (Cancelled)
-> *Heart rate and respiratory sensors provide complementary data*
+[🧪 **Try Interactive Demo**](https://www.breather.quest/hypothesis-2)
 
-**Status:** **🚫 CANCELLED** - Cost/complexity too high vs. microphone-only approach
+### ✅ **Hypothesis 3: Fun Sound Game**
+> *A polished clap-controlled runner game with onboarding, scoring, lives, and game polish can be engaging*
 
-### ⏳ **Hypothesis 4-6:** Health, Learning, Social Benefits
-> *Measuring health improvements, learning acceleration, and social bonding through breath gaming*
+**Status:** **🎯 VALIDATED** - ClapQuest features:
+- Complete game loop with onboarding tutorial
+- Scoring system with multipliers and high scores
+- Lives system and game over mechanics  
+- Visual polish with particles and animations
+
+[🧪 **Try Interactive Demo**](https://www.breather.quest/hypothesis-3)
 
 ---
 
@@ -132,32 +137,6 @@ Microphone Input → Web Audio API → Feature Analysis → Pattern Recognition 
 
 ---
 
-## 📁 **Project Structure**
-
-```
-breathquest/
-├── src/
-│   ├── app/                    # Next.js App Router
-│   │   ├── page.tsx           # Landing page
-│   │   ├── hypothesis-1/      # Breath detection demo
-│   │   ├── hypothesis-2/      # Clap gaming demo  
-│   │   └── audio-tools/       # Analysis tools suite
-│   ├── components/
-│   │   ├── audio-tools/       # 7+ audio analysis visualizers
-│   │   ├── clap/             # Clap detection & pattern matching
-│   │   ├── game/             # Clap-controlled game engine
-│   │   ├── hypothesis1/       # Breath detection & calibration
-│   │   └── sections/          # Landing page sections
-│   └── hooks/                 # Custom React hooks for audio
-├── docs/
-│   ├── hypothesis/            # Research documentation & findings
-│   ├── research/              # Academic papers & validation studies
-│   └── design/               # Game design & calibration protocols
-└── public/                    # Static assets
-```
-
----
-
 ## 🧪 **Research Applications**
 
 ### **Academic Use Cases**
@@ -176,25 +155,7 @@ breathquest/
 
 ## 🤝 **Contributing**
 
-We welcome contributions! Here's how to get involved:
-
-### **🔬 Research Contributions**
-- Test breath detection accuracy across different devices
-- Validate gaming engagement hypotheses  
-- Contribute breathing pattern datasets
-- Improve audio processing algorithms
-
-### **💻 Development Contributions**
-- Add new audio analysis tools
-- Improve UI/UX design
-- Optimize performance
-- Add accessibility features
-
-### **📖 Documentation**
-- Write tutorials for researchers
-- Create developer guides
-- Document breathing protocols
-- Share use case studies
+We welcome contributions!
 
 ```bash
 # Development workflow
@@ -236,38 +197,14 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-## 🔮 **What's Next?**
-
-### **Spin-off Projects**
-- **🎮 ClapQuest.com** - Dedicated clap gaming platform with multiple games
-- **🧪 Hypotheses.net** - Community platform for testing product hypotheses
-- **📱 Mobile Apps** - Native iOS/Android implementations
-
-### **Research Roadmap**
-- [ ] Hypothesis validation on larger user groups
-- [ ] Cross-platform compatibility studies  
-- [ ] Integration with health monitoring systems
-- [ ] AI-powered gesture recognition expansion
-
-### **Future Vision**
-- [ ] VR/AR audio-controlled experiences
-- [ ] Stress-aware AI interfaces that adapt to biological signals
-- [ ] Sub-millisecond response custom hardware
-- [ ] Academic and wellness industry partnerships
-
----
-
 ## 📞 **Connect**
 
 **Built with passion for the future of human-AI interaction**
 
 - **🌐 Website:** [breather.quest](https://www.breather.quest/)
-- **💼 LinkedIn:** [Connect with the creator](https://linkedin.com/in/your-profile)
+- **💼 LinkedIn:** [Connect with the creator](https://www.linkedin.com/in/alibad/)
 - **🐙 GitHub:** [@alibad](https://github.com/alibad)
-- **📧 Email:** Contact through GitHub
 
 ---
 
 ⭐ **Star this repo** if you believe in biological computing interfaces!
-
-*Breath Quest - Exploring the future of biological computing interfaces* 🫁✨
