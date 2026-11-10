@@ -1,108 +1,176 @@
-import HeroSection from '@/components/sections/HeroSection';
-import WhySection from '@/components/sections/WhySection';
-import TimelineSection from '@/components/sections/TimelineSection';
-import TechSection from '@/components/sections/TechSection';
-import HypothesisSection from '@/components/sections/HypothesisSection';
-import StorySection from '@/components/sections/StorySection';
-import NextStepsSection from '@/components/sections/NextStepsSection';
+import { HqHero, HqScreen, HqStones, HqSunset } from '@/components/hq-path/hq-path';
+
+const GITHUB = 'https://github.com/alibad/breathquest';
+
+// The three labs, in the order they were built. Screens are real captures of each page.
+const LABS = [
+  {
+    tag: 'Lab 1 · Breath',
+    title: 'Breath detection',
+    text: 'Calibrate with box breathing, then play by breathing. It works in a quiet room; noise breaks it.',
+    shot: '/shots/lab-breath.jpg',
+    alt: 'The breath lab: a glowing box guides 4-4-4-4 box breathing for calibration',
+    href: '/hypothesis-1',
+  },
+  {
+    tag: 'Lab 2 · Claps',
+    title: 'Clap patterns',
+    text: 'Every clap on a live timeline, matched as a single, double or triple pattern.',
+    shot: '/shots/lab-claps.jpg',
+    alt: 'The clap lab: claps on a live timeline and a history of single, double and triple patterns',
+    href: '/hypothesis-2',
+  },
+  {
+    tag: 'Lab 3 · Game',
+    title: 'Clap Quest',
+    text: 'The runner game, with a short tutorial, a score, three lives and ten levels.',
+    shot: '/shots/clap-quest-tutorial.jpg',
+    alt: 'Clap Quest tutorial: clap once to jump',
+    href: '/hypothesis-3',
+  },
+];
+
+// The audio tools page, one card per live view. Screens are real captures with a microphone on.
+const TOOLS = [
+  {
+    title: 'Frequency spectrum',
+    text: 'FFT bars with spectral centroid, rolloff, flux, spread and skewness.',
+    shot: '/shots/tool-spectrum.jpg',
+    alt: 'Frequency domain analysis: a live spectrum with the spectral centroid marked',
+  },
+  {
+    title: 'Waveform',
+    text: 'The raw signal over time, with its loudness (RMS) and zero crossings.',
+    shot: '/shots/tool-waveform.jpg',
+    alt: 'Time domain analysis: a live waveform of the microphone',
+  },
+  {
+    title: 'Amplitude envelope',
+    text: 'The outline of loudness: moving average, peak follower or Hilbert transform.',
+    shot: '/shots/tool-envelope.jpg',
+    alt: 'Amplitude envelope analysis traced over the raw waveform',
+  },
+  {
+    title: 'Frequency bands',
+    text: 'Energy per frequency band, with band sets for breath, music and voice.',
+    shot: '/shots/tool-bands.jpg',
+    alt: 'Multi-band frequency analysis: energy bars for eight bands',
+  },
+];
 
 export default function Home() {
   return (
-    <>
-      <HeroSection />
-      
-      <div className="container">
-        <WhySection />
-        <TimelineSection />
-        <TechSection />
-        <HypothesisSection />
-        
-        {/* === DEMO ENTRY POINT === */}
-        <section id="demo" className="demo-section">
-          <h2>🎮 Interactive Demo</h2>
-          <p style={{ fontSize: '1rem', marginBottom: '2rem' }}>
-            Try three live prototypes exploring sound‑based game control.
-          </p>
-
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr 1fr',
-            gap: '2rem',
-            alignItems: 'stretch',
-            marginBottom: '2rem'
-          }}>
-            {/* Hypothesis 1 Card */}
-            <a href="/hypothesis-1" style={{
-              textDecoration: 'none', color: 'inherit'
-            }}>
-              <div style={{
-                background: 'rgba(0, 20, 40, 0.8)',
-                padding: '2rem',
-                borderRadius: '16px',
-                border: '2px solid rgba(0, 255, 136, 0.4)'
-              }}>
-                <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>💨</div>
-                <h3 style={{ color: '#00ff88', marginBottom: '0.5rem' }}>Hypothesis #1: Breath Detection</h3>
-                <div style={{ fontSize: '0.95rem', color: '#ccc' }}>
-                  Technical success with calibration; impractical in noise.
-                </div>
-                <div style={{ marginTop: '1rem', display: 'inline-block', padding: '0.6rem 1rem', background: 'linear-gradient(45deg, #00ff88, #4488ff)', color: '#000', borderRadius: '10px', fontWeight: 800 }}>Open Demo</div>
-              </div>
-            </a>
-
-            {/* Hypothesis 2 Card */}
-            <a href="/hypothesis-2" style={{
-              textDecoration: 'none', color: 'inherit'
-            }}>
-              <div style={{
-                background: 'rgba(0, 20, 40, 0.8)',
-                padding: '2rem',
-                borderRadius: '16px',
-                border: '2px solid rgba(68, 136, 255, 0.4)'
-              }}>
-                <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>👏</div>
-                <h3 style={{ color: '#4488ff', marginBottom: '0.5rem' }}>Hypothesis #2: Clap Patterns</h3>
-                <div style={{ fontSize: '0.95rem', color: '#ccc' }}>
-                  Percussive clap events + timing patterns for robust gameplay.
-                </div>
-                <div style={{ marginTop: '1rem', display: 'inline-block', padding: '0.6rem 1rem', background: 'linear-gradient(45deg, #4488ff, #00ff88)', color: '#000', borderRadius: '10px', fontWeight: 800 }}>Open Demo</div>
-              </div>
-            </a>
-
-            {/* Hypothesis 3 Card */}
-            <a href="/hypothesis-3" style={{ textDecoration: 'none', color: 'inherit' }}>
-              <div style={{
-                background: 'rgba(0, 20, 40, 0.8)',
-                padding: '2rem',
-                borderRadius: '16px',
-                border: '2px solid rgba(255, 200, 0, 0.4)'
-              }}>
-                <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🎮</div>
-                <h3 style={{ color: '#ffd36e', marginBottom: '0.5rem' }}>Hypothesis #3: Fun Sound Game</h3>
-                <div style={{ fontSize: '0.95rem', color: '#ccc' }}>
-                  Clap Quest runner with onboarding, scoring, lives, and polish.
-                </div>
-                <div style={{ marginTop: '1rem', display: 'inline-block', padding: '0.6rem 1rem', background: 'linear-gradient(45deg, #ffd36e, #4488ff)', color: '#000', borderRadius: '10px', fontWeight: 800 }}>Open Demo</div>
-              </div>
-            </a>
+    <main className="hqp-page bq-home">
+      <HqHero
+        territory="practice"
+        eyebrow="Breath Quest · A side trail"
+        title={<>Play with your <em>body.</em></>}
+        lede="A game in your browser that listens: your claps are the controller. It began with breath, and found claps faster and more fun."
+        actions={
+          <>
+            <a className="hqp-btn hqp-btn-solid" href="/hypothesis-3">Play Clap Quest</a>
+            <a className="hqp-btn hqp-btn-ghost" href="#how">How it works</a>
+          </>
+        }
+        art={
+          <div className="bq-stage">
+            <HqScreen src="/shots/clap-quest-run.png" alt="Clap Quest running in the browser: the player in mid-jump, a red barrier, a blue target and the score" />
+            <div className="bq-beat" aria-hidden="true">
+              <p className="hqp-eyebrow">The controller</p>
+              <div style={{ ['--row' as string]: 0 }}><span className="bq-claps"><i /></span>Jump</div>
+              <div style={{ ['--row' as string]: 1 }}><span className="bq-claps"><i /><i /></span>Shoot</div>
+              <div style={{ ['--row' as string]: 2 }}><span className="bq-claps"><i /><i /><i /></span>Special</div>
+            </div>
           </div>
+        }
+      >
+        <p className="bq-meta">Runs in the browser · Needs a microphone · Open source</p>
+      </HqHero>
 
-          <div style={{
-            textAlign: 'center',
-            padding: '1.5rem',
-            background: 'rgba(68, 136, 255, 0.1)',
-            borderRadius: '12px',
-            border: '1px solid rgba(68, 136, 255, 0.3)'
-          }}>
-            <p style={{ margin: 0, fontSize: '0.95rem', color: '#ccc' }}>
-              <strong>Research Goal:</strong> Identify sound interactions that are reliable, low‑latency, and fun for real‑time games.
-            </p>
+      <section id="how" className="hqp-section">
+        <div className="hqp-inner">
+          <div className="hqp-head">
+            <div>
+              <p className="hqp-eyebrow">How it works</p>
+              <h2 className="hqp-display">One clap, two, <em>three.</em></h2>
+            </div>
+            <p className="hqp-lede">The microphone listens for the rhythm of your claps. That is the whole controller.</p>
           </div>
-        </section>
-        
-        <StorySection />
-        <NextStepsSection />
-      </div>
-    </>
+          <HqStones
+            steps={[
+              { title: 'Clap once to jump', text: 'Hop over the orange spikes. The space bar jumps too.' },
+              { title: 'Clap twice to shoot', text: 'Hit the red barriers and the blue targets.' },
+              { title: 'Clap three times', text: 'A special move clears the whole road at once, then needs a moment to recharge.' },
+            ]}
+          />
+        </div>
+      </section>
+
+      <section id="labs" className="hqp-section hqp-tint">
+        <div className="hqp-inner">
+          <div className="hqp-head">
+            <div>
+              <p className="hqp-eyebrow">The trail so far</p>
+              <h2 className="hqp-display">It began with <em>breath.</em></h2>
+            </div>
+            <p className="hqp-lede">Three labs, all open to try. Breath worked after calibration, but noise got in the way. Claps were faster and more fun.</p>
+          </div>
+          <div className="bq-grid bq-grid-3">
+            {LABS.map((lab) => (
+              <a key={lab.href} className="hqp-card" href={lab.href}>
+                <div className="hqp-shot"><img src={lab.shot} alt={lab.alt} loading="lazy" /></div>
+                <div className="hqp-body">
+                  <p className="bq-tag">{lab.tag}</p>
+                  <h3>{lab.title}</h3>
+                  <p>{lab.text}</p>
+                  <span className="bq-go">Open the lab <span aria-hidden="true">→</span></span>
+                </div>
+              </a>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="tools" className="hqp-section hqp-nightband bq-tools">
+        <div className="hqp-inner">
+          <div className="hqp-head">
+            <div>
+              <p className="hqp-eyebrow">Audio tools</p>
+              <h2 className="hqp-display">See what the <em>microphone</em> hears.</h2>
+            </div>
+            <p className="hqp-lede">The live views used to find which sounds a game can trust. Open them, make a noise, watch it move.</p>
+          </div>
+          <div className="bq-grid bq-grid-2">
+            {TOOLS.map((tool) => (
+              <a key={tool.title} className="hqp-card" href="/audio-tools">
+                <div className="hqp-shot"><img src={tool.shot} alt={tool.alt} loading="lazy" /></div>
+                <div className="hqp-body">
+                  <h3>{tool.title}</h3>
+                  <p>{tool.text}</p>
+                </div>
+              </a>
+            ))}
+          </div>
+          <div className="bq-more">
+            <p>Also inside: linear predictive coding (LPC), and a recorder that saves the views you pick as a video with sound.</p>
+            <a className="hqp-btn hqp-btn-light" href="/audio-tools">Open the audio tools</a>
+          </div>
+        </div>
+      </section>
+
+      <section className="hqp-section bq-end">
+        <div className="hqp-inner">
+          <p className="hqp-eyebrow">Open source · MIT</p>
+          <h2 className="hqp-display">Clap along, or <em>build on it.</em></h2>
+          <p className="hqp-lede">All of Breath Quest is on GitHub to read and fork: Next.js, TypeScript and the Web Audio API.</p>
+          <div className="hqp-ctas">
+            <a className="hqp-btn hqp-btn-ember" href="/hypothesis-3">Play Clap Quest</a>
+            <a className="hqp-btn hqp-btn-ghost" href={GITHUB} target="_blank" rel="noopener noreferrer">View on GitHub</a>
+          </div>
+        </div>
+      </section>
+
+      <HqSunset sunX={1080} />
+    </main>
   );
 }

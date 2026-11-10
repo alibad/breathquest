@@ -48,136 +48,60 @@ export default function Hypothesis1Page() {
     return () => clearInterval(interval);
   }, [activeTab]);
   
+  // The Path (8 Nov 2026): the page around the instrument follows day and night;
+  // the calibration and the game sit on a dark console (.bq-console in path.css)
+  // in both, because they are drawn for a dark screen. Styles live in path.css.
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #0a0f1c 0%, #1a2332 50%, #0a0f1c 100%)',
-      color: 'white'
-    }}>
+    <div className="bq-lab bq-lab-wide">
       {/* Header with back link */}
-      <div style={{
-        padding: '1rem 2rem',
-        background: 'rgba(0, 20, 40, 0.8)',
-        borderBottom: '1px solid rgba(0, 255, 136, 0.3)'
-      }}>
-        <Link 
-          href="/"
-          style={{
-            color: '#00ff88',
-            textDecoration: 'none',
-            fontSize: '1rem',
-            fontWeight: 'bold'
-          }}
-        >
+      <div className="bq-back">
+        <Link href="/">
           ← Back to BreathQuest
         </Link>
       </div>
 
       {/* Hypothesis 1 Header */}
-      <div style={{
-        padding: '2rem',
-        textAlign: 'center',
-        background: 'rgba(0, 255, 136, 0.05)',
-        borderBottom: '2px solid rgba(0, 255, 136, 0.2)'
-      }}>
-        <h1 style={{
-          fontSize: '2.5rem',
-          marginBottom: '1rem',
-          background: 'linear-gradient(45deg, #00ff88, #4488ff)',
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-          backgroundClip: 'text'
-        }}>
+      <header className="bq-lab-head">
+        <h1 className="hqp-display">
           🧪 Hypothesis #1: Microphone Breath Detection
         </h1>
-        <p style={{
-          fontSize: '1.2rem',
-          maxWidth: '800px',
-          margin: '0 auto',
-          lineHeight: '1.6',
-          color: '#ccc'
-        }}>
+        <p className="hqp-lede">
           <strong>Testing:</strong> Consumer microphones can reliably detect breathing patterns 
           with sufficient accuracy for real-time gaming.
         </p>
-      </div>
+      </header>
 
       {/* First-Time User Welcome Banner */}
       {isClient && isFirstTime && (
-        <div style={{
-          padding: '1.5rem 2rem',
-          background: 'linear-gradient(135deg, rgba(0, 255, 136, 0.15), rgba(68, 136, 255, 0.15))',
-          borderBottom: '2px solid rgba(0, 255, 136, 0.3)',
-          textAlign: 'center'
-        }}>
-          <div style={{
-            fontSize: '1.3rem',
-            fontWeight: 'bold',
-            color: '#00ff88',
-            marginBottom: '0.5rem'
-          }}>
+        <div className="bq-welcome">
+          <div className="bq-welcome-title">
             🎯 Welcome to Enhanced Breath Detection!
           </div>
-          <p style={{
-            fontSize: '1rem',
-            color: '#ccc',
-            maxWidth: '600px',
-            margin: '0 auto',
-            lineHeight: '1.5'
-          }}>
-            For the <strong style={{ color: '#4488ff' }}>best gaming experience</strong>, we recommend 
-            completing the <strong style={{ color: '#00ff88' }}>30-second calibration</strong> first. 
+          <p>
+            For the <strong>best gaming experience</strong>, we recommend 
+            completing the <strong>30-second calibration</strong> first. 
             This creates a personalized AI model that dramatically improves breath detection accuracy!
           </p>
         </div>
       )}
 
       {/* Tab Navigation */}
-      <div style={{
-        padding: '2rem',
-        display: 'flex',
-        justifyContent: 'center',
-        gap: '1rem',
-        flexWrap: 'wrap'
-      }}>
+      <div className="bq-tabs">
         <button
           onClick={() => {
             setHasUserManuallySelectedTab(true);
             setActiveTab('play');
           }}
-          style={{
-            padding: '1rem 1.5rem',
-            fontSize: '1rem',
-            fontWeight: 'bold',
-            border: activeTab === 'play' ? '3px solid #00ff88' : '2px solid #333',
-            background: activeTab === 'play' ? 'rgba(0, 255, 136, 0.2)' : 'rgba(0, 20, 40, 0.8)',
-            color: activeTab === 'play' ? '#00ff88' : '#fff',
-            borderRadius: '12px',
-            cursor: 'pointer',
-            transition: 'all 0.3s ease',
-            position: 'relative',
-            opacity: !hasCalibration && !isFirstTime ? 0.7 : 1
-          }}
+          className="bq-tab"
+          aria-pressed={activeTab === 'play'}
+          style={{ opacity: !hasCalibration && !isFirstTime ? 0.7 : 1 }}
         >
           🎮 Play Game
           {isClient && hasCalibration && (
-            <div style={{
-              position: 'absolute',
-              top: '-5px',
-              right: '-5px',
-              width: '12px',
-              height: '12px',
-              background: '#00ff88',
-              borderRadius: '50%',
-              boxShadow: '0 0 8px rgba(0, 255, 136, 0.8)'
-            }}></div>
+            <div className="bq-tab-dot"></div>
           )}
           {isClient && !hasCalibration && !isFirstTime && (
-            <div style={{
-              fontSize: '0.7rem',
-              color: '#ffaa00',
-              marginTop: '2px'
-            }}>
+            <div className="bq-tab-note">
               Calibration Recommended
             </div>
           )}
@@ -188,34 +112,12 @@ export default function Hypothesis1Page() {
             setHasUserManuallySelectedTab(true);
             setActiveTab('calibrate');
           }}
-          style={{
-            padding: '1rem 1.5rem',
-            fontSize: '1rem',
-            fontWeight: 'bold',
-            border: activeTab === 'calibrate' ? '3px solid #4488ff' : '2px solid #333',
-            background: activeTab === 'calibrate' ? 'rgba(68, 136, 255, 0.2)' : 'rgba(0, 20, 40, 0.8)',
-            color: activeTab === 'calibrate' ? '#4488ff' : '#fff',
-            borderRadius: '12px',
-            cursor: 'pointer',
-            transition: 'all 0.3s ease',
-            position: 'relative'
-          }}
+          className="bq-tab"
+          aria-pressed={activeTab === 'calibrate'}
         >
           📦 Calibrate Breath
           {isClient && isFirstTime && (
-            <div style={{
-              position: 'absolute',
-              top: '-8px',
-              right: '-8px',
-              background: 'linear-gradient(45deg, #ff9500, #ffb347)',
-              color: '#fff',
-              fontSize: '0.6rem',
-              fontWeight: 'bold',
-              padding: '2px 6px',
-              borderRadius: '8px',
-              boxShadow: '0 2px 8px rgba(255, 149, 0, 0.6)',
-              animation: 'pulse 2s infinite'
-            }}>
+            <div className="bq-tab-badge">
               START HERE
             </div>
           )}
@@ -224,13 +126,7 @@ export default function Hypothesis1Page() {
       </div>
 
       {/* Component Content */}
-      <div style={{
-        padding: '0 2rem 2rem 2rem',
-        maxWidth: '1200px',
-        margin: '0 auto',
-        minHeight: '80vh',
-        overflow: 'visible'
-      }}>
+      <div className="bq-console bq-console-tall">
         {activeTab === 'play' ? (
           <PlayGameComponent />
         ) : (
@@ -239,14 +135,8 @@ export default function Hypothesis1Page() {
       </div>
 
       {/* Footer */}
-      <div style={{
-        padding: '2rem',
-        textAlign: 'center',
-        background: 'rgba(0, 20, 40, 0.8)',
-        borderTop: '1px solid rgba(0, 255, 136, 0.3)',
-        marginTop: '2rem'
-      }}>
-        <p style={{ color: '#888', fontSize: '0.9rem' }}>
+      <div className="bq-lab-note">
+        <p>
           Part of the BreathQuest research project • Testing breath-controlled gaming interfaces
         </p>
       </div>

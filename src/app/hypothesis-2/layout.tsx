@@ -2,26 +2,21 @@
 
 import React, { ReactNode } from 'react';
 
+/* The Path (8 Nov 2026): the page follows day and night like the home page; the
+   instrument below sits on a dark console (.bq-console in path.css) in both,
+   because its own controls and canvas are drawn for a dark screen. */
 export default function HypothesisTwoLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="container" style={{ paddingTop: '3.5rem', paddingBottom: '3rem' }}>
-      <h1 style={{
-        background: 'linear-gradient(45deg, #00ff88, #4488ff)',
-        backgroundClip: 'text',
-        WebkitBackgroundClip: 'text',
-        color: 'transparent',
-        fontSize: '2.2rem',
-        fontWeight: 800,
-        marginBottom: '1rem'
-      }}>
-        Hypothesis #2 — Clap Pattern Control (Done)
-      </h1>
-      <p style={{ color: '#cccccc', marginBottom: '1.5rem' }}>
-        Testing whether intentional, percussive claps and their timing patterns can power robust, fun, noise‑resistant real‑time gameplay.
-      </p>
-      {children}
+    <div className="bq-lab">
+      <header className="bq-lab-head">
+        <h1 className="hqp-display">
+          Hypothesis #2 — Clap Pattern Control (Done)
+        </h1>
+        <p className="hqp-lede">
+          Testing whether intentional, percussive claps and their timing patterns can power robust, fun, noise‑resistant real‑time gameplay.
+        </p>
+      </header>
+      <div className="bq-console">{children}</div>
     </div>
   );
 }
-
-

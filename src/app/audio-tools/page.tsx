@@ -188,139 +188,88 @@ export default function AudioToolsPage() {
     };
   }, []);
 
+  // The Path (8 Nov 2026): the page follows day and night like the home page; once
+  // listening, the tools sit on a dark console (.bq-console in path.css) in both,
+  // because their canvases and panels are drawn for a dark screen.
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: 'linear-gradient(to bottom, #0a0a0a, #1a1a2e)',
-      color: '#ffffff',
-      padding: '2rem',
-      paddingTop: '6rem' // Added top padding for navbar
-    }}>
+    <div className="bq-lab bq-lab-wide">
       {/* Header */}
-      <div style={{
-        textAlign: 'center',
-        marginBottom: '3rem'
-      }}>
-        <h1 style={{
-          fontSize: '3rem',
-          fontWeight: '900',
-          background: 'linear-gradient(45deg, #00ff88, #4488ff)',
-          backgroundClip: 'text',
-          WebkitBackgroundClip: 'text',
-          color: 'transparent',
-          marginBottom: '1rem'
-        }}>
+      <header className="bq-lab-head bq-center">
+        <h1 className="hqp-display">
           🔬 Audio Analysis Tools
         </h1>
-        <p style={{
-          fontSize: '1.2rem',
-          color: '#cccccc',
-          maxWidth: '600px',
-          margin: '0 auto'
-        }}>
+        <p className="hqp-lede">
           Scientific exploration of Web Audio API capabilities for understanding microphone input, 
           frequency analysis, and real-time audio processing.
         </p>
-      </div>
+      </header>
 
       {/* Control Panel */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'center',
-        marginBottom: '2rem'
-      }}>
+      <div className="bq-controls">
         <button
           onClick={isListening ? stopAudioCapture : startAudioCapture}
-          style={{
-            padding: '1rem 2rem',
-            fontSize: '1.1rem',
-            fontWeight: 'bold',
-            background: isListening 
-              ? 'linear-gradient(45deg, #ff6b6b, #ff4444)' 
-              : 'linear-gradient(45deg, #00ff88, #4488ff)',
-            color: '#ffffff',
-            border: 'none',
-            borderRadius: '12px',
-            cursor: 'pointer',
-            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.3)',
-            transition: 'all 0.3s ease'
-          }}
+          className={isListening ? 'hqp-btn bq-btn-stop' : 'hqp-btn hqp-btn-ember'}
         >
           {isListening ? '🛑 Stop Audio Capture' : '🎤 Start Audio Capture'}
         </button>
       </div>
 
-      {/* Audio Configuration Info */}
-      {isListening && <AudioConfigurationPanel audioData={audioData} />}
-
-      {/* Recording Controls */}
       {isListening && (
-        <AudioVideoRecorder 
-          isListening={isListening}
-          canvasRefs={[
-            timeDomainCanvasRef, 
-            amplitudeEnvelopeCanvasRef, 
-            spectrumCanvasRef,      // index 2
-            centroidCanvasRef,      // index 3  
-            rolloffCanvasRef,       // index 4
-            fluxCanvasRef,          // index 5
-            spreadCanvasRef,        // index 6
-            skewnessCanvasRef,      // index 7
-            frequencyBandCanvasRef, // index 8
-            lpcAnalysisCanvasRef    // index 9
-          ]}
-          audioStream={audioStreamRef.current || undefined}
-          expansionStates={getExpansionStates()}
-          audioData={audioData}
-        />
-      )}
+        <div className="bq-console">
+          {/* Audio Configuration Info */}
+          <AudioConfigurationPanel audioData={audioData} />
 
-      {/* Audio Analysis Tools */}
-      {isListening && (
-        <div style={{
-          maxWidth: '1000px',
-          margin: '0 auto'
-        }}>
-          <TimeDomainTool audioData={audioData} canvasRef={timeDomainCanvasRef} />
-          <AmplitudeEnvelopeTool audioData={audioData} canvasRef={amplitudeEnvelopeCanvasRef} />
-          <FrequencyDomainTool 
-            audioData={audioData} 
-            canvasRef={frequencyDomainCanvasRef}
-            spectrumCanvasRef={spectrumCanvasRef}
-            centroidCanvasRef={centroidCanvasRef}
-            rolloffCanvasRef={rolloffCanvasRef}
-            fluxCanvasRef={fluxCanvasRef}
-            spreadCanvasRef={spreadCanvasRef}
-            skewnessCanvasRef={skewnessCanvasRef}
+          {/* Recording Controls */}
+          <AudioVideoRecorder 
+            isListening={isListening}
+            canvasRefs={[
+              timeDomainCanvasRef, 
+              amplitudeEnvelopeCanvasRef, 
+              spectrumCanvasRef,      // index 2
+              centroidCanvasRef,      // index 3  
+              rolloffCanvasRef,       // index 4
+              fluxCanvasRef,          // index 5
+              spreadCanvasRef,        // index 6
+              skewnessCanvasRef,      // index 7
+              frequencyBandCanvasRef, // index 8
+              lpcAnalysisCanvasRef    // index 9
+            ]}
+            audioStream={audioStreamRef.current || undefined}
+            expansionStates={getExpansionStates()}
+            audioData={audioData}
           />
-          <FrequencyBandTool audioData={audioData} canvasRef={frequencyBandCanvasRef} />
 
-          <LPCAnalysisTool audioData={audioData} canvasRef={lpcAnalysisCanvasRef} />
+          {/* Audio Analysis Tools */}
+          <div style={{
+            maxWidth: '1000px',
+            margin: '0 auto'
+          }}>
+            <TimeDomainTool audioData={audioData} canvasRef={timeDomainCanvasRef} />
+            <AmplitudeEnvelopeTool audioData={audioData} canvasRef={amplitudeEnvelopeCanvasRef} />
+            <FrequencyDomainTool 
+              audioData={audioData} 
+              canvasRef={frequencyDomainCanvasRef}
+              spectrumCanvasRef={spectrumCanvasRef}
+              centroidCanvasRef={centroidCanvasRef}
+              rolloffCanvasRef={rolloffCanvasRef}
+              fluxCanvasRef={fluxCanvasRef}
+              spreadCanvasRef={spreadCanvasRef}
+              skewnessCanvasRef={skewnessCanvasRef}
+            />
+            <FrequencyBandTool audioData={audioData} canvasRef={frequencyBandCanvasRef} />
+
+            <LPCAnalysisTool audioData={audioData} canvasRef={lpcAnalysisCanvasRef} />
+          </div>
         </div>
       )}
 
       {/* Getting Started Guide */}
       {!isListening && (
-        <div style={{
-          maxWidth: '800px',
-          margin: '0 auto',
-          background: 'rgba(255, 255, 255, 0.05)',
-          padding: '2rem',
-          borderRadius: '16px',
-          border: '1px solid rgba(255, 255, 255, 0.1)'
-        }}>
-          <h2 style={{
-            color: '#ffffff',
-            marginBottom: '1rem',
-            textAlign: 'center'
-          }}>
+        <div className="bq-guide">
+          <h2 className="hqp-display">
             🚀 Getting Started
           </h2>
-          <ol style={{
-            color: '#cccccc',
-            lineHeight: '1.6',
-            paddingLeft: '1.5rem'
-          }}>
+          <ol>
             <li>Click "Start Audio Capture" to access your microphone</li>
             <li>Grant microphone permissions when prompted</li>
             <li>Watch real-time visualizations of audio data</li>

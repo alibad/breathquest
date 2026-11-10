@@ -1,0 +1,149 @@
+/* Breath Quest on The Path (Human Quest family look). Loaded after globals.css.
+   globals.css styles bare nav, footer, section, h2 and h3 for the lab pages (neon on black).
+   These zero-specificity resets keep those rules out of the family frame and the landing page,
+   and leave the lab pages exactly as they were. */
+:where(.hqp-questbar) nav { position: static; top: auto; width: auto; padding: 0; background: none; backdrop-filter: none; -webkit-backdrop-filter: none; box-shadow: none; z-index: auto; transition: none; }
+footer:where(.hqp-foot) { text-align: left; border-top: 0; margin-top: 0; }
+:where(.hqp-page, .hqp-foot) :is(h2, h3) { background: none; -webkit-text-fill-color: currentColor; color: inherit; margin: 0; font-size: inherit; }
+:where(.hqp-page) section { margin-bottom: 0; }
+:where(.hqp-page, .hqp-questbar) ::selection { background: var(--hqp-sun); color: var(--hqp-ink); }
+html { scroll-padding-top: 76px; }
+html:has(.bq-home) { scroll-behavior: smooth; }
+/* Every page sits on the Path's paper and ink, by day and by night (globals.css paints the body black).
+   html body outranks globals.css and the inline style Next's own 404 page carries. */
+html body { background: var(--hqp-paper); color: var(--hqp-ink); }
+
+/* ---------- Landing ---------- */
+.bq-home { overflow-x: clip; }
+.bq-home h2.hqp-display { text-wrap: balance; }
+.bq-meta { margin: 28px 0 0; font: 500 11.5px/1.5 var(--hqp-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--hqp-ink-3); }
+
+/* Hero art: the real game under the sun, with the clap rhythm beside it. */
+.bq-stage { position: relative; }
+.bq-stage .hqp-screen img { aspect-ratio: 1136 / 699; background: #0b0b12; }
+.bq-beat { position: absolute; z-index: 3; left: -48px; top: 26%; min-width: 200px; padding: 14px 18px 10px; border-radius: 16px; background: var(--hqp-card); border: 1px solid var(--hqp-line); box-shadow: 0 24px 50px -24px rgba(60, 30, 10, .55); transition: background .6s ease, border-color .6s ease; }
+.bq-beat .hqp-eyebrow { margin: 0 0 8px; font-size: 10.5px; }
+.bq-beat > div { display: flex; align-items: center; gap: 12px; padding: 5px 0; font: 600 15px/1 var(--hqp-text); color: var(--hqp-ink); }
+.bq-claps { display: inline-flex; gap: 5px; width: 46px; }
+.bq-claps { --bq-dot: var(--hqp-t); }
+:root[data-theme="night"] .bq-claps { --bq-dot: var(--hqp-td); }
+.bq-claps i { width: 10px; height: 10px; border-radius: 50%; background: var(--bq-dot); animation: bq-clap 3.6s ease-out infinite; animation-delay: calc(var(--row, 0) * 1.2s); }
+.bq-claps i:nth-child(2) { animation-delay: calc(var(--row, 0) * 1.2s + .18s); }
+.bq-claps i:nth-child(3) { animation-delay: calc(var(--row, 0) * 1.2s + .36s); }
+@keyframes bq-clap {
+  0%, 12%, 100% { transform: scale(1); background: var(--bq-dot); }
+  4% { transform: scale(1.55); background: var(--hqp-ember); }
+}
+
+/* Card grids. */
+.bq-grid { display: grid; gap: 22px; }
+.bq-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.bq-grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.bq-home .hqp-card { display: flex; flex-direction: column; color: var(--hqp-ink); }
+.bq-home .hqp-card .hqp-body { display: flex; flex-direction: column; flex: 1; }
+.bq-home .hqp-card .hqp-shot { background: #0b0b12; }
+.bq-home .hqp-card .hqp-shot img { display: block; transition: transform .5s ease; }
+.bq-home a.hqp-card:hover .hqp-shot img { transform: scale(1.03); }
+.bq-tag { margin: 0 0 8px; font: 500 11px/1.2 var(--hqp-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--hqp-td); }
+.bq-go { margin-top: auto; padding-top: 16px; font: 600 14px/1 var(--hqp-text); color: var(--hqp-ember); }
+.bq-go span { display: inline-block; transition: transform .2s ease; }
+.hqp-card:hover .bq-go span { transform: translateX(4px); }
+
+/* Audio tools: a night band, so the tools' own dark screens sit at home. */
+.bq-tools .hqp-card { border-top-color: var(--hqp-t); }
+.bq-tools .hqp-card h3 { font-size: 26px; }
+.bq-more { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 18px 32px; margin-top: 34px; padding-top: 28px; border-top: 1px solid rgba(241, 230, 214, .16); }
+.bq-more p { margin: 0; max-width: 56ch; color: #bfae99; }
+:root[data-theme="night"] .bq-tools { background: #140d09; }
+:root[data-theme="night"] .bq-tools .hqp-card { border-color: #3d2c20; border-top-color: var(--hqp-t); }
+
+/* Closing call to action. */
+.bq-end { text-align: center; padding-bottom: clamp(24px, 4vw, 48px); }
+.bq-end .hqp-lede { margin-left: auto; margin-right: auto; max-width: 40ch; }
+.bq-end .hqp-ctas { justify-content: center; }
+
+@media (max-width: 1100px) {
+  .bq-beat { left: -20px; }
+}
+@media (max-width: 860px) {
+  .bq-grid-3, .bq-grid-2 { grid-template-columns: 1fr; }
+  .bq-stage { padding-bottom: 0; }
+  .bq-beat { position: relative; left: auto; bottom: auto; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 18px; top: auto; width: fit-content; max-width: 100%; margin: 14px auto 0; min-width: 0; padding: 12px 16px; }
+  .bq-beat .hqp-eyebrow { width: 100%; margin-bottom: 2px; }
+  .bq-beat > div { font-size: 14px; gap: 8px; }
+  .bq-claps { width: auto; }
+}
+@media (min-width: 861px) and (max-width: 1100px) {
+  .bq-grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bq-claps i { animation: none; }
+  html:has(.bq-home) { scroll-behavior: auto; }
+}
+
+/* ---------- The lab pages (8 Nov 2026) ----------
+   /hypothesis-1, /hypothesis-2, /hypothesis-3 and /audio-tools: the page follows day and night like the
+   home page, in the family type. The instrument itself (calibration, clap timeline, Clap Quest, the audio
+   tools) is drawn for a dark screen with its own inline colours, so it sits on a dark console in both
+   themes, the way the home page shows the tools on a night band. Game and canvas rendering is untouched. */
+.bq-lab { max-width: 1120px; margin: 0 auto; padding: clamp(28px, 5vw, 64px) var(--hqp-gutter) clamp(40px, 6vw, 80px); font-family: var(--hqp-text); color: var(--hqp-ink); }
+.bq-lab-wide { max-width: 1280px; }
+.bq-lab-head { max-width: 880px; margin: 0 0 clamp(22px, 3vw, 34px); }
+.bq-lab-head h1.hqp-display { font-size: clamp(34px, 4.4vw, 58px); line-height: 1.05; text-wrap: balance; }
+.bq-lab-head .hqp-lede { max-width: 62ch; margin: 18px 0 0; font-size: 19px; }
+.bq-lab-head .hqp-lede strong { color: var(--hqp-ink); font-weight: 600; }
+.bq-center { margin-left: auto; margin-right: auto; text-align: center; }
+.bq-center .hqp-lede { margin-left: auto; margin-right: auto; }
+.bq-back { margin: 0 0 24px; }
+.bq-back a { font: 500 12px/1 var(--hqp-mono); letter-spacing: .14em; text-transform: uppercase; text-decoration: none; color: var(--hqp-td); transition: color .15s ease; }
+.bq-back a:hover { color: var(--hqp-ember); }
+
+/* First visit: the calibration hint, as a family card. */
+.bq-welcome { margin: 0 0 26px; padding: 20px 24px; border-radius: 18px; background: var(--hqp-card); border: 1px solid var(--hqp-line); border-left: 4px solid var(--hqp-t); }
+.bq-welcome-title { margin: 0 0 6px; font: 400 24px/1.15 var(--hqp-display); letter-spacing: -0.015em; color: var(--hqp-ink); }
+.bq-welcome p { margin: 0; max-width: 70ch; color: var(--hqp-ink-2); }
+.bq-welcome strong { color: var(--hqp-ember); }
+
+/* Play / Calibrate: family pills; the chosen one is solid ink. */
+.bq-tabs { display: flex; flex-wrap: wrap; gap: 12px; margin: 0 0 22px; }
+.bq-tab { position: relative; display: inline-flex; flex-direction: column; align-items: center; padding: 12px 22px; border-radius: 999px; border: 1.5px solid var(--hqp-line); background: transparent; color: var(--hqp-ink); font: 600 15px/1.2 var(--hqp-text); cursor: pointer; transition: background .2s ease, color .2s ease, border-color .2s ease, transform .2s ease; }
+.bq-tab:hover { background: var(--hqp-paper-2); transform: translateY(-1px); }
+.bq-tab[aria-pressed="true"] { background: var(--hqp-ink); border-color: var(--hqp-ink); color: var(--hqp-paper); }
+.bq-tab-dot { position: absolute; top: -3px; right: -3px; width: 12px; height: 12px; border-radius: 50%; background: var(--hqp-ember); box-shadow: 0 0 0 3px var(--hqp-paper); }
+.bq-tab-note { margin-top: 4px; font: 500 10.5px/1 var(--hqp-mono); letter-spacing: .06em; color: var(--hqp-planning-deep); }
+.bq-tab[aria-pressed="true"] .bq-tab-note { color: var(--hqp-sun); }
+.bq-tab-badge { position: absolute; top: -10px; right: -10px; padding: 4px 8px; border-radius: 999px; background: var(--hqp-sun); color: #24170f; font: 600 10px/1 var(--hqp-mono); letter-spacing: .1em; box-shadow: 0 4px 12px -4px rgba(138, 74, 20, .6); animation: pulse 2s infinite; }
+
+/* The console: dark in both themes, the instrument's own screen. It keeps the instrument's own type. */
+.bq-console { position: relative; padding: clamp(14px, 2.4vw, 28px); border-radius: 22px; background: var(--hqp-night); border: 1px solid #3d2c20; border-top: 4px solid var(--hqp-t); color: #f6efe3; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; box-shadow: 0 40px 80px -48px rgba(60, 30, 10, .55); }
+:root[data-theme="night"] .bq-console { background: #140d09; box-shadow: none; }
+.bq-console-tall { min-height: 80vh; }
+
+/* The line under the hypothesis-1 instrument. */
+.bq-lab-note { margin-top: 36px; padding-top: 22px; border-top: 1px solid var(--hqp-line); text-align: center; }
+.bq-lab-note p { margin: 0; font-size: 14px; color: var(--hqp-ink-3); }
+
+/* Audio tools: start / stop, and the guide before the microphone is on. */
+.bq-controls { display: flex; justify-content: center; margin: 0 0 32px; }
+.bq-controls .hqp-btn { padding: 15px 28px; font-size: 16px; }
+.bq-btn-stop { background: #b4432f; border-color: #b4432f; color: #fff !important; }
+.bq-guide { max-width: 800px; margin: 0 auto; padding: 28px 32px 30px; border-radius: 18px; background: var(--hqp-card); border: 1px solid var(--hqp-line); border-top: 4px solid var(--hqp-t); }
+.bq-guide h2.hqp-display { margin: 0 0 16px; font-size: 30px; line-height: 1.1; text-align: center; background: none; -webkit-text-fill-color: currentColor; color: var(--hqp-ink); }
+.bq-guide ol { margin: 0; padding-left: 1.4rem; list-style: decimal; line-height: 1.7; color: var(--hqp-ink-2); }
+.bq-guide li::marker { font: 500 13px var(--hqp-mono); color: var(--hqp-ink-3); }
+
+/* Next's own 404 page: the family display face, and a rule that follows the theme. */
+html .next-error-h1 { font-family: var(--hqp-display); border-right-color: var(--hqp-line); }
+html .next-error-h1 + div h2 { background: none; -webkit-text-fill-color: currentColor; color: var(--hqp-ink-2); font-family: var(--hqp-text); }
+
+@media (max-width: 760px) {
+  .bq-lab-head .hqp-lede { font-size: 17px; }
+  .bq-welcome { padding: 18px 18px; }
+  .bq-guide { padding: 22px 20px 24px; }
+  .bq-tab { padding: 11px 18px; font-size: 14px; }
+  /* Clap Quest's canvas is at least 640px wide: on a phone it scrolls inside the console, not the page. */
+  .bq-console { overflow-x: auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bq-tab-badge { animation: none; }
+}
